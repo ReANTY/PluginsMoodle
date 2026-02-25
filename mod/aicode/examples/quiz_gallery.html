@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AICode JavaScript Quiz Gallery</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        margin-bottom: 30px;
+        text-align: center;
+      }
+
+      h1 {
+        color: #667eea;
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        color: #666;
+        font-size: 1.2em;
+      }
+
+      .filter-buttons {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .filter-btn {
+        padding: 10px 20px;
+        margin: 5px;
+        border: 2px solid #667eea;
+        background: white;
+        color: #667eea;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+
+      .filter-btn:hover,
+      .filter-btn.active {
+        background: #667eea;
+        color: white;
+      }
+
+      .quiz-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+      }
+
+      .quiz-card {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+        position: relative;
+      }
+
+      .quiz-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .quiz-card h3 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 1.3em;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 15px;
+      }
+
+      .badge.beginner {
+        background: #48bb78;
+        color: white;
+      }
+
+      .badge.intermediate {
+        background: #ed8936;
+        color: white;
+      }
+
+      .badge.advanced {
+        background: #f56565;
+        color: white;
+      }
+
+      .time-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #667eea;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 11px;
+      }
+
+      .quiz-description {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 15px;
+        line-height: 1.5;
+      }
+
+      .code-preview {
+        background: #f7fafc;
+        border-left: 3px solid #667eea;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 5px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        overflow-x: auto;
+      }
+
+      .test-cases {
+        background: #edf2f7;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+        font-size: 12px;
+      }
+
+      .copy-btn {
+        width: 100%;
+        padding: 10px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+        transition: background 0.3s;
+      }
+
+      .copy-btn:hover {
+        background: #5a67d8;
+      }
+
+      .copy-btn:active {
+        background: #4c51bf;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        overflow-y: auto;
+      }
+
+      .modal-content {
+        background: white;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 30px;
+        border-radius: 10px;
+        position: relative;
+      }
+
+      .close-modal {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        font-size: 30px;
+        cursor: pointer;
+        color: #999;
+      }
+
+      .close-modal:hover {
+        color: #333;
+      }
+
+      pre {
+        background: #2d3748;
+        color: #f7fafc;
+        padding: 15px;
+        border-radius: 5px;
+        overflow-x: auto;
+        margin: 10px 0;
+      }
+
+      .success-toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #48bb78;
+        color: white;
+        padding: 15px 25px;
+        border-radius: 5px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        display: none;
+        z-index: 2000;
+      }
+
+      @media (max-width: 768px) {
+        .quiz-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🚀 AICode JavaScript Quiz Gallery</h1>
+        <p class="subtitle">12 Quiz Siap Pakai untuk Moodle</p>
+      </header>
+
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">Semua (12)</button>
+        <button class="filter-btn" data-filter="beginner">Beginner (4)</button>
+        <button class="filter-btn" data-filter="intermediate">Intermediate (8)</button>
+      </div>
+
+      <div class="quiz-grid" id="quizGrid"></div>
+    </div>
+
+    <div class="modal" id="modal">
+      <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <div class="success-toast" id="toast">✓ Disalin ke clipboard!</div>
+
+    <script>
+      const quizzes = [
+        {
+          name: "Quiz 1: Fungsi Penjumlahan",
+          difficulty: "beginner",
+          time: "10 menit",
+          description: "Membuat fungsi JavaScript sederhana untuk menjumlahkan dua angka. Cocok untuk pemula yang baru belajar function, parameter, dan return value.",
+          starterCode: `function jumlahkan(a, b) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(jumlahkan(5, 3));\nconsole.log(jumlahkan(10, 20));`,
+          testCases: `[{"input":"5, 3","expected":"8"},{"input":"10, 20","expected":"30"}]`,
+          skills: ["Functions", "Parameters", "Return values"],
+        },
+        {
+          name: "Quiz 2: Filter Bilangan Genap",
+          difficulty: "beginner",
+          time: "15 menit",
+          description: "Bekerja dengan array dan loop untuk memfilter bilangan genap. Belajar tentang array manipulation dan conditional logic.",
+          starterCode: `function filterGenap(arr) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(JSON.stringify(filterGenap([1, 2, 3, 4])));`,
+          testCases: `[{"input":"[1,2,3,4,5,6]","expected":"[2,4,6]"}]`,
+          skills: ["Arrays", "Loops", "Modulo operator"],
+        },
+        {
+          name: "Quiz 3: Validasi Email",
+          difficulty: "intermediate",
+          time: "20 menit",
+          description: "String manipulation dan validation logic. Mengecek apakah format email valid dengan berbagai kondisi.",
+          starterCode: `function validasiEmail(email) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(validasiEmail("test@example.com"));`,
+          testCases: `[{"input":"user@example.com","expected":"true"},{"input":"invalid","expected":"false"}]`,
+          skills: ["String methods", "Validation", "Conditionals"],
+        },
+        {
+          name: "Quiz 4: Deret Fibonacci",
+          difficulty: "intermediate",
+          time: "25 menit",
+          description: "Algoritma matematika klasik. Bisa diselesaikan dengan recursion atau iteration. Bagus untuk memahami algorithm thinking.",
+          starterCode: `function fibonacci(n) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(fibonacci(10));`,
+          testCases: `[{"input":"0","expected":"0"},{"input":"10","expected":"55"}]`,
+          skills: ["Algorithms", "Recursion", "Iteration"],
+        },
+        {
+          name: "Quiz 5: Palindrome Checker",
+          difficulty: "intermediate",
+          time: "25 menit",
+          description: "Mengecek kata palindrome dengan string manipulation. Termasuk handling case sensitivity dan spasi.",
+          starterCode: `function isPalindrome(str) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(isPalindrome("katak"));`,
+          testCases: `[{"input":"katak","expected":"true"},{"input":"hello","expected":"false"}]`,
+          skills: ["String manipulation", "Algorithm", "String reversal"],
+        },
+        {
+          name: "Quiz 6: Hitung Kata",
+          difficulty: "beginner",
+          time: "15 menit",
+          description: "Menghitung jumlah kata dalam kalimat. Belajar tentang split, trim, dan handling multiple spaces.",
+          starterCode: `function hitungKata(kalimat) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(hitungKata("Hello World"));`,
+          testCases: `[{"input":"Hello World","expected":"2"}]`,
+          skills: ["String methods", "Split", "Array length"],
+        },
+        {
+          name: "Quiz 7: Find Maximum",
+          difficulty: "beginner",
+          time: "15 menit",
+          description: "Mencari nilai terbesar dalam array tanpa menggunakan Math.max(). Belajar array iteration dan comparison.",
+          starterCode: `function findMax(arr) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(findMax([1, 5, 3, 9, 2]));`,
+          testCases: `[{"input":"[1,5,3,9,2]","expected":"9"}]`,
+          skills: ["Array iteration", "Comparison", "Tracking max value"],
+        },
+        {
+          name: "Quiz 8: Reverse String",
+          difficulty: "beginner",
+          time: "10 menit",
+          description: "Membalik urutan string. Pengenalan array conversion dan reverse method.",
+          starterCode: `function reverseString(str) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(reverseString("hello"));`,
+          testCases: `[{"input":"hello","expected":"olleh"}]`,
+          skills: ["String to array", "Array reverse", "Join"],
+        },
+        {
+          name: "Quiz 9: FizzBuzz",
+          difficulty: "intermediate",
+          time: "20 menit",
+          description: "Classic programming challenge. Kombinasi conditional logic dan modulo operator untuk pattern recognition.",
+          starterCode: `function fizzBuzz(n) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(JSON.stringify(fizzBuzz(15)));`,
+          testCases: `[{"input":"15","expected":"[1,2,\\"Fizz\\",4,\\"Buzz\\",...]"}]`,
+          skills: ["Loops", "Modulo", "Multiple conditions"],
+        },
+        {
+          name: "Quiz 10: Remove Duplicates",
+          difficulty: "intermediate",
+          time: "20 menit",
+          description: "Menghapus elemen duplikat dari array. Belajar tentang Set atau filter dengan indexOf.",
+          starterCode: `function removeDuplicates(arr) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(JSON.stringify(removeDuplicates([1,2,2,3])));`,
+          testCases: `[{"input":"[1,2,2,3,4,4,5]","expected":"[1,2,3,4,5]"}]`,
+          skills: ["Set data structure", "Filter", "Unique values"],
+        },
+        {
+          name: "Quiz 11: Faktorial",
+          difficulty: "intermediate",
+          time: "20 menit",
+          description: "Menghitung faktorial dengan recursion atau iteration. Matematika dasar programming.",
+          starterCode: `function faktorial(n) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(faktorial(5));`,
+          testCases: `[{"input":"5","expected":"120"},{"input":"0","expected":"1"}]`,
+          skills: ["Recursion", "Mathematical operations", "Base case"],
+        },
+        {
+          name: "Quiz 12: Capitalize Words",
+          difficulty: "intermediate",
+          time: "20 menit",
+          description: "Kapitalisasi huruf pertama setiap kata. String dan array manipulation lanjutan.",
+          starterCode: `function capitalizeWords(sentence) {\n    // Tulis kode Anda di sini\n    \n}\n\nconsole.log(capitalizeWords("hello world"));`,
+          testCases: `[{"input":"hello world","expected":"Hello World"}]`,
+          skills: ["String methods", "Map", "Capitalization"],
+        },
+      ];
+
+      let currentFilter = "all";
+
+      function renderQuizzes() {
+        const grid = document.getElementById("quizGrid");
+        grid.innerHTML = "";
+
+        const filtered = currentFilter === "all" ? quizzes : quizzes.filter((q) => q.difficulty === currentFilter);
+
+        filtered.forEach((quiz, index) => {
+          const card = document.createElement("div");
+          card.className = "quiz-card";
+          card.innerHTML = `
+                    <div class="time-badge">${quiz.time}</div>
+                    <h3>${quiz.name}</h3>
+                    <span class="badge ${quiz.difficulty}">${quiz.difficulty.toUpperCase()}</span>
+                    <p class="quiz-description">${quiz.description}</p>
+                    <div class="test-cases">
+                        <strong>Skills:</strong> ${quiz.skills.join(", ")}
+                    </div>
+                    <button class="copy-btn" onclick="viewDetails(${index})">
+                        📋 Lihat Detail & Copy
+                    </button>
+                `;
+          grid.appendChild(card);
+        });
+      }
+
+      function viewDetails(index) {
+        const quiz = currentFilter === "all" ? quizzes[index] : quizzes.filter((q) => q.difficulty === currentFilter)[index];
+
+        const modal = document.getElementById("modal");
+        const content = document.getElementById("modalContent");
+
+        content.innerHTML = `
+                <h2>${quiz.name}</h2>
+                <span class="badge ${quiz.difficulty}">${quiz.difficulty}</span>
+                <p style="margin: 20px 0;">${quiz.description}</p>
+                
+                <h3>Starter Code:</h3>
+                <pre>${escapeHtml(quiz.starterCode)}</pre>
+                <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(quiz.starterCode)}', 'Starter Code')">
+                    📋 Copy Starter Code
+                </button>
+                
+                <h3 style="margin-top: 20px;">Test Cases:</h3>
+                <pre>${escapeHtml(quiz.testCases)}</pre>
+                <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(quiz.testCases)}', 'Test Cases')">
+                    📋 Copy Test Cases
+                </button>
+                
+                <h3 style="margin-top: 20px;">Copy Full JSON:</h3>
+                <button class="copy-btn" onclick="copyFullQuiz(${quizzes.indexOf(quiz)})">
+                    📋 Copy Semua Data (untuk Import)
+                </button>
+            `;
+
+        modal.style.display = "block";
+      }
+
+      function copyFullQuiz(index) {
+        const quiz = quizzes[index];
+        const fullData = JSON.stringify(
+          {
+            name: quiz.name,
+            description: `<h3>Problem</h3><p>${quiz.description}</p>`,
+            language: "javascript",
+            startercode: quiz.starterCode,
+            testcases: quiz.testCases,
+            difficulty: quiz.difficulty,
+            estimated_time: quiz.time,
+          },
+          null,
+          2
+        );
+
+        copyToClipboard(fullData, "Full Quiz Data");
+      }
+
+      function closeModal() {
+        document.getElementById("modal").style.display = "none";
+      }
+
+      function copyToClipboard(text, label) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+
+        showToast(`✓ ${label} disalin ke clipboard!`);
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.style.display = "block";
+        setTimeout(() => {
+          toast.style.display = "none";
+        }, 2000);
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function escapeForJs(text) {
+        return text.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+      }
+
+      // Filter buttons
+      document.querySelectorAll(".filter-btn").forEach((btn) => {
+        btn.addEventListener("click", function () {
+          document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
+          this.classList.add("active");
+          currentFilter = this.dataset.filter;
+          renderQuizzes();
+        });
+      });
+
+      // Close modal on outside click
+      window.onclick = function (event) {
+        const modal = document.getElementById("modal");
+        if (event.target === modal) {
+          closeModal();
+        }
+      };
+
+      // Initial render
+      renderQuizzes();
+    </script>
+  </body>
+</html>

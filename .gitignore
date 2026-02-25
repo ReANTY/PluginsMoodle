@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Environment files
+.env
+.env.local
+
+# Moodle
+moodledata/
+config.php
+
+# Docker volumes
+/tmp/aicode-jobs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build outputs
+services/*/build/
+services/*/dist/
+mod/mod_aicode/amd/build/*.js
+mod/mod_aicode/amd/build/*.map
+
+# Test coverage
+coverage/
+.nyc_output/
+

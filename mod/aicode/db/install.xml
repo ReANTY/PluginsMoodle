@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/aicode/db" VERSION="20260120" COMMENT="XMLDB file for Moodle mod/aicode"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="aicode" COMMENT="Stores programming problems for AICode activities">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="course" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="intro" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="language" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="javascript" SEQUENCE="false"/>
+        <FIELD NAME="testcases" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON array of test cases"/>
+        <FIELD NAME="startercode" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="htmltemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="csstemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="allow_training" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="mode" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="training" SEQUENCE="false" COMMENT="Activity mode: training or exam"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="course" TYPE="foreign" FIELDS="course" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="language" UNIQUE="false" FIELDS="language"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="aicode_attempts" COMMENT="Student code submission attempts">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="problemid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Nullable for anonymized attempts"/>
+        <FIELD NAME="code_hash" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="is_anonymous" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="result_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Short execution result"/>
+        <FIELD NAME="used_hints_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Array of hint levels used"/>
+        <FIELD NAME="ai_feedback_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="AI analysis result"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="problemid" TYPE="foreign" FIELDS="problemid" REFTABLE="aicode" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="code_hash" UNIQUE="false" FIELDS="code_hash"/>
+        <INDEX NAME="timecreated" UNIQUE="false" FIELDS="timecreated"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="aicode_materials" COMMENT="Recommended learning materials">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="url" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="type" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="doc" SEQUENCE="false" COMMENT="video, doc, quiz"/>
+        <FIELD NAME="tags_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Array of topic tags"/>
+        <FIELD NAME="moodle_resource_id" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+    </TABLE>
+    <TABLE NAME="aicode_cache" COMMENT="Caches AI responses for repeated queries">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="payload_hash" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="ai_response_json" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="payload_hash" UNIQUE="true" FIELDS="payload_hash"/>
+        <INDEX NAME="timecreated" UNIQUE="false" FIELDS="timecreated"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="aicode_teacher_overrides" COMMENT="Teacher corrections to AI feedback">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="teacherid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="corrected_feedback_json" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="attemptid" TYPE="foreign" FIELDS="attemptid" REFTABLE="aicode_attempts" REFFIELDS="id"/>
+        <KEY NAME="teacherid" TYPE="foreign" FIELDS="teacherid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="attemptid" UNIQUE="true" FIELDS="attemptid"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>
+

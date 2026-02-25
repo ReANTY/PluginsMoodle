@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Example 1: Syntax Error - Missing Parenthesis",
+    "description": "<h3>Problem</h3><p>Complete the function to greet a user by name.</p><h3>Requirements</h3><ul><li>Function should take a name parameter</li><li>Use console.log to print \"Hello, [name]!\"</li></ul>",
+    "language": "javascript",
+    "startercode": "function greet(name) {\n    console.log(\"Hello, \" + name;\n}\ngreet(\"Alice\");",
+    "testcases": "[{\"input\":\"Alice\",\"expected\":\"Hello, Alice!\"},{\"input\":\"Bob\",\"expected\":\"Hello, Bob!\"}]",
+    "expected_error": "SyntaxError: missing ) after argument list",
+    "learning_objective": "Understanding parenthesis matching and syntax errors"
+  },
+  {
+    "name": "Example 2: Runtime Error - Undefined Variable",
+    "description": "<h3>Problem</h3><p>Fix the function that calculates the area of a rectangle.</p><h3>Requirements</h3><ul><li>Function should take width and height parameters</li><li>Return the calculated area</li><li>Use console.log to print the result</li></ul>",
+    "language": "javascript",
+    "startercode": "function calculateArea(width, height) {\n    let result = width * heigth;\n    return result;\n}\nconsole.log(calculateArea(5, 10));",
+    "testcases": "[{\"input\":\"5,10\",\"expected\":\"50\"},{\"input\":\"3,7\",\"expected\":\"21\"}]",
+    "expected_error": "ReferenceError: heigth is not defined",
+    "learning_objective": "Identifying typos and undefined variable errors"
+  },
+  {
+    "name": "Example 3: Logic Error - Off-by-One",
+    "description": "<h3>Problem</h3><p>Write a function that sums all elements in an array.</p><h3>Requirements</h3><ul><li>Function should take an array parameter</li><li>Return the sum of all elements</li><li>Handle empty arrays (return 0)</li></ul>",
+    "language": "javascript",
+    "startercode": "function sumArray(arr) {\n    let sum = 0;\n    for (let i = 0; i <= arr.length; i++) {\n        sum += arr[i];\n    }\n    return sum;\n}\nconsole.log(sumArray([1, 2, 3, 4, 5]));",
+    "testcases": "[{\"input\":\"[1,2,3]\",\"expected\":\"6\"},{\"input\":\"[10,20,30]\",\"expected\":\"60\"},{\"input\":\"[]\",\"expected\":\"0\"}]",
+    "expected_error": "TypeError: Cannot read property of undefined (accessing arr[arr.length])",
+    "learning_objective": "Understanding array indexing and off-by-one errors"
+  }
+]

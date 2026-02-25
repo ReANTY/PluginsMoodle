@@ -1,0 +1,110 @@
+[
+  {
+    "name": "Quiz JavaScript 1: Fungsi Penjumlahan",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami cara membuat fungsi JavaScript sederhana dengan parameter dan return value.</p><h3>Problem</h3><p>Buatlah sebuah fungsi bernama <code>jumlahkan</code> yang menerima dua parameter (a dan b), kemudian mengembalikan hasil penjumlahan kedua angka tersebut.</p><h3>Persyaratan</h3><ul><li>Fungsi harus bernama <code>jumlahkan</code></li><li>Fungsi menerima 2 parameter: <code>a</code> dan <code>b</code></li><li>Fungsi mengembalikan hasil penjumlahan a + b</li><li>Gunakan <code>return</code> untuk mengembalikan nilai</li></ul>",
+    "language": "javascript",
+    "startercode": "// Lengkapi fungsi di bawah ini\nfunction jumlahkan(a, b) {\n    // Tulis kode Anda di sini\n    \n}\n\n// Test cases (jangan dihapus)\nconsole.log(jumlahkan(5, 3));\nconsole.log(jumlahkan(10, 20));\nconsole.log(jumlahkan(-5, 5));",
+    "testcases": "[{\"input\":\"5, 3\",\"expected\":\"8\"},{\"input\":\"10, 20\",\"expected\":\"30\"},{\"input\":\"-5, 5\",\"expected\":\"0\"},{\"input\":\"100, 200\",\"expected\":\"300\"}]",
+    "difficulty": "beginner",
+    "estimated_time": "10 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 2: Filter Bilangan Genap",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami cara bekerja dengan array dan loop dalam JavaScript.</p><h3>Problem</h3><p>Buatlah fungsi <code>filterGenap</code> yang menerima sebuah array berisi angka, kemudian mengembalikan array baru yang hanya berisi bilangan genap.</p><h3>Persyaratan</h3><ul><li>Fungsi bernama <code>filterGenap</code></li><li>Parameter: <code>arr</code> (array of numbers)</li><li>Return: array baru berisi hanya bilangan genap</li><li>Bilangan genap: angka yang habis dibagi 2</li></ul>",
+    "language": "javascript",
+    "startercode": "function filterGenap(arr) {\n    // Tulis kode Anda di sini\n    \n}\n\n// Test cases\nconsole.log(JSON.stringify(filterGenap([1, 2, 3, 4, 5, 6])));\nconsole.log(JSON.stringify(filterGenap([10, 15, 20, 25])));\nconsole.log(JSON.stringify(filterGenap([7, 9, 11])));",
+    "testcases": "[{\"input\":\"[1, 2, 3, 4, 5, 6]\",\"expected\":\"[2,4,6]\"},{\"input\":\"[10, 15, 20, 25]\",\"expected\":\"[10,20]\"},{\"input\":\"[7, 9, 11]\",\"expected\":\"[]\"},{\"input\":\"[2, 4, 6, 8]\",\"expected\":\"[2,4,6,8]\"}]",
+    "difficulty": "beginner",
+    "estimated_time": "15 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 3: Validasi Email",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami string manipulation dan conditional logic.</p><h3>Problem</h3><p>Buatlah fungsi <code>validasiEmail</code> yang menerima sebuah string email dan mengembalikan <code>true</code> jika email valid, atau <code>false</code> jika tidak.</p><h3>Persyaratan Email Valid</h3><ul><li>Harus mengandung karakter @</li><li>Harus ada karakter sebelum @</li><li>Harus ada domain setelah @ (contoh: gmail.com)</li><li>Domain harus mengandung titik (.)</li><li>Tidak boleh ada spasi</li></ul>",
+    "language": "javascript",
+    "startercode": "function validasiEmail(email) {\n    // Tulis kode Anda di sini\n    // Hint: gunakan indexOf(), includes(), atau split()\n    \n}\n\n// Test cases\nconsole.log(validasiEmail(\"user@example.com\"));\nconsole.log(validasiEmail(\"test@gmail.com\"));\nconsole.log(validasiEmail(\"invalid.email\"));\nconsole.log(validasiEmail(\"@example.com\"));",
+    "testcases": "[{\"input\":\"user@example.com\",\"expected\":\"true\"},{\"input\":\"test.user@gmail.com\",\"expected\":\"true\"},{\"input\":\"invalid.email\",\"expected\":\"false\"},{\"input\":\"@example.com\",\"expected\":\"false\"},{\"input\":\"user@example\",\"expected\":\"false\"}]",
+    "difficulty": "intermediate",
+    "estimated_time": "20 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 4: Deret Fibonacci",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami algoritma iteratif atau rekursif untuk menyelesaikan masalah matematika.</p><h3>Problem</h3><p>Buatlah fungsi <code>fibonacci</code> yang menerima sebuah angka <code>n</code> dan mengembalikan angka Fibonacci ke-n.</p><h3>Deret Fibonacci</h3><p>0, 1, 1, 2, 3, 5, 8, 13, 21, ...</p><p>Setiap angka adalah penjumlahan dari dua angka sebelumnya.</p>",
+    "language": "javascript",
+    "startercode": "function fibonacci(n) {\n    // Tulis kode Anda di sini\n    // Hint: Bisa menggunakan loop atau recursion\n    \n}\n\n// Test cases\nconsole.log(fibonacci(0));\nconsole.log(fibonacci(1));\nconsole.log(fibonacci(5));\nconsole.log(fibonacci(10));",
+    "testcases": "[{\"input\":\"0\",\"expected\":\"0\"},{\"input\":\"1\",\"expected\":\"1\"},{\"input\":\"5\",\"expected\":\"5\"},{\"input\":\"10\",\"expected\":\"55\"},{\"input\":\"15\",\"expected\":\"610\"}]",
+    "difficulty": "intermediate",
+    "estimated_time": "25 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 5: Palindrome Checker",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami string manipulation dan algorithm thinking.</p><h3>Problem</h3><p>Buatlah fungsi <code>isPalindrome</code> yang mengecek apakah sebuah kata adalah palindrome (dibaca sama dari depan dan belakang).</p><h3>Persyaratan</h3><ul><li>Return <code>true</code> jika palindrome, <code>false</code> jika tidak</li><li>Abaikan case sensitivity (huruf besar/kecil)</li><li>Abaikan spasi dan tanda baca</li></ul>",
+    "language": "javascript",
+    "startercode": "function isPalindrome(str) {\n    // Tulis kode Anda di sini\n    // Step 1: Bersihkan string (lowercase, hapus spasi)\n    // Step 2: Reverse string\n    // Step 3: Bandingkan dengan original\n    \n}\n\n// Test cases\nconsole.log(isPalindrome(\"katak\"));\nconsole.log(isPalindrome(\"kasur rusak\"));\nconsole.log(isPalindrome(\"hello\"));",
+    "testcases": "[{\"input\":\"katak\",\"expected\":\"true\"},{\"input\":\"kasur rusak\",\"expected\":\"true\"},{\"input\":\"hello\",\"expected\":\"false\"},{\"input\":\"A man a plan a canal Panama\",\"expected\":\"true\"},{\"input\":\"race car\",\"expected\":\"true\"}]",
+    "difficulty": "intermediate",
+    "estimated_time": "25 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 6: Hitung Kata",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami string manipulation dan array operations.</p><h3>Problem</h3><p>Buatlah fungsi <code>hitungKata</code> yang menerima sebuah kalimat (string) dan mengembalikan jumlah kata dalam kalimat tersebut.</p><h3>Persyaratan</h3><ul><li>Kata dipisahkan oleh spasi</li><li>Abaikan spasi di awal dan akhir</li><li>Multiple spasi dihitung sebagai satu separator</li><li>String kosong return 0</li></ul>",
+    "language": "javascript",
+    "startercode": "function hitungKata(kalimat) {\n    // Tulis kode Anda di sini\n    // Hint: gunakan .trim() dan .split()\n    \n}\n\n// Test cases\nconsole.log(hitungKata(\"Hello World\"));\nconsole.log(hitungKata(\"   JavaScript   is   awesome   \"));\nconsole.log(hitungKata(\"\"));\nconsole.log(hitungKata(\"Satu\"));",
+    "testcases": "[{\"input\":\"Hello World\",\"expected\":\"2\"},{\"input\":\"JavaScript is awesome\",\"expected\":\"3\"},{\"input\":\"   Multiple   spaces   \",\"expected\":\"2\"},{\"input\":\"\",\"expected\":\"0\"},{\"input\":\"Satu\",\"expected\":\"1\"}]",
+    "difficulty": "beginner",
+    "estimated_time": "15 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 7: Find Maximum",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami array iteration dan comparison operations.</p><h3>Problem</h3><p>Buatlah fungsi <code>findMax</code> yang menerima array berisi angka dan mengembalikan nilai terbesar dalam array tersebut.</p><h3>Persyaratan</h3><ul><li>Jangan gunakan Math.max()</li><li>Gunakan loop untuk iterate array</li><li>Handle array kosong (return null atau undefined)</li></ul>",
+    "language": "javascript",
+    "startercode": "function findMax(arr) {\n    // Tulis kode Anda di sini\n    // Hint: Track nilai maksimum saat iterate\n    \n}\n\n// Test cases\nconsole.log(findMax([1, 5, 3, 9, 2]));\nconsole.log(findMax([-10, -5, -20]));\nconsole.log(findMax([42]));\nconsole.log(findMax([]));",
+    "testcases": "[{\"input\":\"[1, 5, 3, 9, 2]\",\"expected\":\"9\"},{\"input\":\"[-10, -5, -20]\",\"expected\":\"-5\"},{\"input\":\"[42]\",\"expected\":\"42\"},{\"input\":\"[100, 200, 50]\",\"expected\":\"200\"}]",
+    "difficulty": "beginner",
+    "estimated_time": "15 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 8: Reverse String",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami string manipulation dan array methods.</p><h3>Problem</h3><p>Buatlah fungsi <code>reverseString</code> yang menerima sebuah string dan mengembalikan string tersebut dalam urutan terbalik.</p><h3>Contoh</h3><pre>reverseString(\"hello\") → \"olleh\"\nreverseString(\"JavaScript\") → \"tpircSavaJ\"</pre>",
+    "language": "javascript",
+    "startercode": "function reverseString(str) {\n    // Tulis kode Anda di sini\n    // Hint: Convert string to array, reverse, join back\n    \n}\n\n// Test cases\nconsole.log(reverseString(\"hello\"));\nconsole.log(reverseString(\"JavaScript\"));\nconsole.log(reverseString(\"12345\"));",
+    "testcases": "[{\"input\":\"hello\",\"expected\":\"olleh\"},{\"input\":\"JavaScript\",\"expected\":\"tpircSavaJ\"},{\"input\":\"12345\",\"expected\":\"54321\"},{\"input\":\"a\",\"expected\":\"a\"}]",
+    "difficulty": "beginner",
+    "estimated_time": "10 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 9: FizzBuzz",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami conditional logic dan modulo operator.</p><h3>Problem</h3><p>Buatlah fungsi <code>fizzBuzz</code> yang menerima angka <code>n</code> dan mengembalikan array dari 1 sampai n dengan aturan:</p><ul><li>Angka kelipatan 3: ganti dengan \"Fizz\"</li><li>Angka kelipatan 5: ganti dengan \"Buzz\"</li><li>Angka kelipatan 3 DAN 5: ganti dengan \"FizzBuzz\"</li><li>Angka lain: tetap angka</li></ul>",
+    "language": "javascript",
+    "startercode": "function fizzBuzz(n) {\n    // Tulis kode Anda di sini\n    // Hint: Loop dari 1 sampai n, check kelipatan dengan modulo (%)\n    \n}\n\n// Test cases\nconsole.log(JSON.stringify(fizzBuzz(15)));",
+    "testcases": "[{\"input\":\"15\",\"expected\":\"[1,2,\\\"Fizz\\\",4,\\\"Buzz\\\",\\\"Fizz\\\",7,8,\\\"Fizz\\\",\\\"Buzz\\\",11,\\\"Fizz\\\",13,14,\\\"FizzBuzz\\\"]\"}]",
+    "difficulty": "intermediate",
+    "estimated_time": "20 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 10: Remove Duplicates",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami array manipulation dan Set data structure.</p><h3>Problem</h3><p>Buatlah fungsi <code>removeDuplicates</code> yang menerima array dan mengembalikan array baru tanpa elemen duplikat.</p><h3>Contoh</h3><pre>removeDuplicates([1, 2, 2, 3, 4, 4, 5]) → [1, 2, 3, 4, 5]</pre>",
+    "language": "javascript",
+    "startercode": "function removeDuplicates(arr) {\n    // Tulis kode Anda di sini\n    // Hint 1: Gunakan Set untuk remove duplicates\n    // Hint 2: Atau gunakan filter dengan indexOf\n    \n}\n\n// Test cases\nconsole.log(JSON.stringify(removeDuplicates([1, 2, 2, 3, 4, 4, 5])));\nconsole.log(JSON.stringify(removeDuplicates([\"a\", \"b\", \"a\", \"c\"])));",
+    "testcases": "[{\"input\":\"[1, 2, 2, 3, 4, 4, 5]\",\"expected\":\"[1,2,3,4,5]\"},{\"input\":\"[\\\"a\\\",\\\"b\\\",\\\"a\\\",\\\"c\\\"]\",\"expected\":\"[\\\"a\\\",\\\"b\\\",\\\"c\\\"]\"},{\"input\":\"[5,5,5,5]\",\"expected\":\"[5]\"}]",
+    "difficulty": "intermediate",
+    "estimated_time": "20 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 11: Faktorial",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami recursion atau iterative algorithm.</p><h3>Problem</h3><p>Buatlah fungsi <code>faktorial</code> yang menghitung faktorial dari angka n.</p><h3>Definisi Faktorial</h3><pre>5! = 5 × 4 × 3 × 2 × 1 = 120\n0! = 1 (by definition)</pre>",
+    "language": "javascript",
+    "startercode": "function faktorial(n) {\n    // Tulis kode Anda di sini\n    \n}\n\n// Test cases\nconsole.log(faktorial(5));\nconsole.log(faktorial(0));\nconsole.log(faktorial(10));",
+    "testcases": "[{\"input\":\"5\",\"expected\":\"120\"},{\"input\":\"0\",\"expected\":\"1\"},{\"input\":\"3\",\"expected\":\"6\"},{\"input\":\"10\",\"expected\":\"3628800\"}]",
+    "difficulty": "intermediate",
+    "estimated_time": "20 minutes"
+  },
+  {
+    "name": "Quiz JavaScript 12: Capitalize Words",
+    "description": "<h3>Tujuan Pembelajaran</h3><p>Memahami string manipulation dan array mapping.</p><h3>Problem</h3><p>Buatlah fungsi <code>capitalizeWords</code> yang menerima kalimat dan mengembalikan kalimat dengan huruf pertama setiap kata menjadi kapital.</p><h3>Contoh</h3><pre>\"hello world\" → \"Hello World\"</pre>",
+    "language": "javascript",
+    "startercode": "function capitalizeWords(sentence) {\n    // Tulis kode Anda di sini\n    // Hint: Split by space, capitalize each word, join back\n    \n}\n\n// Test cases\nconsole.log(capitalizeWords(\"hello world\"));\nconsole.log(capitalizeWords(\"javascript is awesome\"));",
+    "testcases": "[{\"input\":\"hello world\",\"expected\":\"Hello World\"},{\"input\":\"javascript is awesome\",\"expected\":\"Javascript Is Awesome\"},{\"input\":\"a b c\",\"expected\":\"A B C\"}]",
+    "difficulty": "intermediate",
+    "estimated_time": "20 minutes"
+  }
+]

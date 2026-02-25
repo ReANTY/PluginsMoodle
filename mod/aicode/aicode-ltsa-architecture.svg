@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1220" viewBox="0 0 1900 1220">
+  <defs>
+    <marker id="arrow-req" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L16,8 L0,16 z" fill="#1d4ed8"/>
+    </marker>
+    <marker id="arrow-res" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L16,8 L0,16 z" fill="#059669"/>
+    </marker>
+    <marker id="arrow-data" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L16,8 L0,16 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-ext" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L16,8 L0,16 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrow-opt" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L16,8 L0,16 z" fill="#475569"/>
+    </marker>
+    <style>
+      .title { font: 700 36px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 18px Arial, sans-serif; fill: #334155; }
+      .nodehead { font: 700 24px Arial, sans-serif; fill: #111827; text-anchor: middle; }
+      .nodesub { font: 500 16px Arial, sans-serif; fill: #334155; text-anchor: middle; }
+      .label { font: 500 14px Arial, sans-serif; fill: #111827; text-anchor: middle; }
+      .legend { font: 500 15px Arial, sans-serif; fill: #111827; }
+
+      .core { fill: #f8fbff; stroke: #1f2937; stroke-width: 2.8; }
+      .store { fill: #ffffff; stroke: #1f2937; stroke-width: 2.8; }
+      .ext { fill: #ffffff; stroke: #1f2937; stroke-width: 2.4; stroke-dasharray: 10 7; }
+
+      .req { stroke: #1d4ed8; stroke-width: 3.6; fill: none; marker-end: url(#arrow-req); stroke-linecap: round; stroke-linejoin: round; }
+      .res { stroke: #059669; stroke-width: 3.6; fill: none; marker-end: url(#arrow-res); stroke-linecap: round; stroke-linejoin: round; }
+      .data { stroke: #7c3aed; stroke-width: 3.6; fill: none; marker-end: url(#arrow-data); stroke-linecap: round; stroke-linejoin: round; }
+      .extflow { stroke: #d97706; stroke-width: 3.6; fill: none; marker-end: url(#arrow-ext); stroke-linecap: round; stroke-linejoin: round; }
+      .opt { stroke: #475569; stroke-width: 3.6; fill: none; marker-end: url(#arrow-opt); stroke-dasharray: 10 7; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1900" height="1220" fill="#ffffff"/>
+  <text x="950" y="56" text-anchor="middle" class="title">Arsitektur LTSA - Plugin Moodle AICode</text>
+  <text x="950" y="86" text-anchor="middle" class="subtitle">Panah dipisah per jalur agar tidak tumpang tindih dan lebih mudah dibaca.</text>
+
+  <!-- Core LTSA -->
+  <circle cx="320" cy="340" r="125" class="core"/>
+  <text x="320" y="330" class="nodehead">Delivery</text>
+  <text x="320" y="354" class="nodesub">UI AICode + Editor</text>
+  <text x="320" y="376" class="nodesub">render + preview</text>
+
+  <circle cx="950" cy="150" r="110" class="core"/>
+  <text x="950" y="142" class="nodehead">Learner Entity</text>
+  <text x="950" y="166" class="nodesub">peserta didik</text>
+  <text x="950" y="188" class="nodesub">aktivitas belajar</text>
+
+  <circle cx="1580" cy="340" r="125" class="core"/>
+  <text x="1580" y="330" class="nodehead">Evaluation</text>
+  <text x="1580" y="354" class="nodesub">run_code</text>
+  <text x="1580" y="376" class="nodesub">analyze_code</text>
+
+  <circle cx="950" cy="700" r="130" class="core"/>
+  <text x="950" y="690" class="nodehead">Coach</text>
+  <text x="950" y="714" class="nodesub">orkestrasi feedback</text>
+  <text x="950" y="736" class="nodesub">dan strategi bantuan</text>
+
+  <rect x="120" y="640" width="360" height="150" rx="14" class="store"/>
+  <text x="300" y="700" class="nodehead">Learning Resources</text>
+  <text x="300" y="726" class="nodesub">soal + template</text>
+  <text x="300" y="748" class="nodesub">materi pembelajaran</text>
+
+  <rect x="1420" y="640" width="360" height="150" rx="14" class="store"/>
+  <text x="1600" y="700" class="nodehead">Learner Record</text>
+  <text x="1600" y="726" class="nodesub">aicode_attempts</text>
+  <text x="1600" y="748" class="nodesub">hasil run + hint usage</text>
+
+  <!-- Extensions -->
+  <rect x="560" y="490" width="250" height="110" rx="12" class="ext"/>
+  <text x="685" y="538" class="nodehead">Hint Tracker</text>
+  <text x="685" y="562" class="nodesub">record_hint</text>
+
+  <circle cx="1260" cy="510" r="105" class="ext"/>
+  <text x="1260" y="500" class="nodehead">AI Feedback Engine</text>
+  <text x="1260" y="524" class="nodesub">Moodle AI manager</text>
+  <text x="1260" y="546" class="nodesub">+ fallback</text>
+
+  <circle cx="1670" cy="560" r="60" class="ext"/>
+  <text x="1670" y="552" class="nodehead">Executor</text>
+  <text x="1670" y="576" class="nodesub">service /run</text>
+
+  <rect x="1030" y="890" width="300" height="100" rx="12" class="ext"/>
+  <text x="1180" y="934" class="nodehead">Prompt Cache</text>
+  <text x="1180" y="958" class="nodesub">aicode_cache</text>
+
+  <rect x="1450" y="890" width="290" height="100" rx="12" class="ext"/>
+  <text x="1595" y="934" class="nodehead">Teacher Review</text>
+  <text x="1595" y="958" class="nodesub">send_to_teacher</text>
+
+  <!-- Clear non-overlapping flows -->
+  <!-- Learner <-> Delivery -->
+  <polyline points="840,190 620,190 430,255" class="req"/>
+  <text x="640" y="180" class="label">aksi siswa ke UI</text>
+  <polyline points="430,220 620,145 840,145" class="res"/>
+  <text x="640" y="136" class="label">umpan balik ke siswa</text>
+
+  <!-- Learner <-> Evaluation -->
+  <polyline points="1060,145 1290,145 1475,220" class="req"/>
+  <text x="1285" y="134" class="label">progres evaluasi</text>
+  <polyline points="1475,260 1290,110 1060,110" class="res"/>
+  <text x="1285" y="100" class="label">status hasil belajar</text>
+
+  <!-- Delivery <-> Evaluation -->
+  <line x1="450" y1="315" x2="1450" y2="315" class="req"/>
+  <text x="950" y="304" class="label">request run code</text>
+  <line x1="1450" y1="365" x2="450" y2="365" class="res"/>
+  <text x="950" y="384" class="label">stdout/stderr response</text>
+
+  <!-- Delivery <-> Coach -->
+  <polyline points="390,445 390,590 820,680" class="req"/>
+  <text x="520" y="570" class="label">konteks percobaan</text>
+  <polyline points="820,770 390,770 390,420" class="res"/>
+  <text x="520" y="784" class="label">saran ke delivery</text>
+
+  <!-- Coach <-> Learning Resources -->
+  <line x1="810" y1="690" x2="480" y2="690" class="req"/>
+  <text x="650" y="680" class="label">query resource</text>
+  <line x1="480" y1="740" x2="810" y2="740" class="res"/>
+  <text x="650" y="760" class="label">resource result</text>
+
+  <!-- Coach <-> Learner Record -->
+  <line x1="1090" y1="690" x2="1420" y2="690" class="data"/>
+  <text x="1255" y="680" class="label">simpan progres</text>
+  <line x1="1420" y1="740" x2="1090" y2="740" class="res"/>
+  <text x="1255" y="760" class="label">riwayat belajar</text>
+
+  <!-- Evaluation <-> Executor -->
+  <polyline points="1615,465 1615,500 1648,500" class="extflow"/>
+  <polyline points="1658,520 1590,520 1590,465" class="res"/>
+  <text x="1695" y="500" class="label">sandbox run</text>
+
+  <!-- Evaluation <-> AI feedback -->
+  <polyline points="1465,425 1415,425 1365,468" class="extflow"/>
+  <text x="1408" y="414" class="label">stderr + trace</text>
+  <polyline points="1365,552 1420,552 1465,508" class="res"/>
+  <text x="1415" y="572" class="label">feedback JSON</text>
+
+  <!-- Hint flow -->
+  <polyline points="450,440 520,440 560,530" class="req"/>
+  <text x="500" y="468" class="label">hint request</text>
+  <polyline points="810,545 910,545 910,630 1420,630 1420,705" class="data"/>
+  <text x="1120" y="620" class="label">catat hint usage</text>
+
+  <!-- Cache and teacher escalation -->
+  <polyline points="1035,820 1105,860 1160,890" class="data"/>
+  <text x="1080" y="850" class="label">cache write</text>
+  <polyline points="1240,890 1120,860 1070,830" class="res"/>
+  <text x="1220" y="850" class="label">cache hit</text>
+  <polyline points="1090,845 1280,845 1450,940" class="opt"/>
+  <text x="1295" y="834" class="label">eskalasi ke guru (opsional)</text>
+  <polyline points="1450,980 1280,1005 1090,870" class="res"/>
+  <text x="1285" y="1018" class="label">override dari guru</text>
+
+  <!-- Evaluation persistence direct -->
+  <line x1="1535" y1="465" x2="1535" y2="640" class="data"/>
+  <line x1="1495" y1="640" x2="1495" y2="465" class="res"/>
+  <text x="1488" y="560" class="label">persist run result</text>
+
+  <!-- Legend -->
+  <rect x="70" y="1040" width="1760" height="130" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.6"/>
+  <line x1="110" y1="1080" x2="200" y2="1080" class="req"/>
+  <text x="215" y="1085" class="legend">Request / command</text>
+  <line x1="450" y1="1080" x2="540" y2="1080" class="res"/>
+  <text x="555" y="1085" class="legend">Response / return</text>
+  <line x1="790" y1="1080" x2="880" y2="1080" class="data"/>
+  <text x="895" y="1085" class="legend">Data persistence</text>
+  <line x1="1120" y1="1080" x2="1210" y2="1080" class="extflow"/>
+  <text x="1225" y="1085" class="legend">External integration</text>
+  <line x1="1460" y1="1080" x2="1550" y2="1080" class="opt"/>
+  <text x="1565" y="1085" class="legend">Optional flow</text>
+</svg>

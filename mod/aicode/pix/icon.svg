@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- AICode icon: Code brackets with AI sparkle -->
+  <rect width="64" height="64" fill="#5e72e4" rx="8"/>
+  <path d="M20 18 L12 32 L20 46" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M44 18 L52 32 L44 46" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="16" r="2" fill="#ffd700"/>
+  <circle cx="52" cy="12" r="1.5" fill="#ffd700"/>
+  <circle cx="44" cy="14" r="1" fill="#ffd700"/>
+  <text x="32" y="38" font-family="monospace" font-size="14" fill="white" text-anchor="middle" font-weight="bold">AI</text>
+</svg>
+

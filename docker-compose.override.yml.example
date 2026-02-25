@@ -1,0 +1,27 @@
+# Docker Compose override for development
+# 
+# Copy this file to docker-compose.override.yml for local development.
+# This override enables:
+# - vm2 mode for executor (no Docker-in-Docker needed)
+# - Volume mounts for live code reloading
+# - Debug logging
+# 
+# Usage:
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   docker-compose up
+
+version: '3.8'
+
+services:
+  executor:
+    environment:
+      - EXECUTOR_MODE=dev  # Use vm2 instead of Docker
+    volumes:
+      - ./services/executor:/app  # Mount source for live reload
+    command: sh -c "npm install && npm run dev"
+
+  analyzer:
+    volumes:
+      - ./services/analyzer:/app  # Mount source for live reload
+    command: sh -c "npm install && npm start"
+

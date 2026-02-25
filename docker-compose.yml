@@ -1,0 +1,59 @@
+# Docker Compose configuration for AICode services
+#
+# This file defines the executor and analyzer microservices.
+#
+# Usage:
+#   docker-compose up -d              # Start services
+#   docker-compose logs -f            # View logs
+#   docker-compose down               # Stop services
+
+version: "3.8"
+
+services:
+  executor:
+    build:
+      context: ./services/executor
+      dockerfile: Dockerfile
+    container_name: aicode-executor
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      - PORT=3001
+      - EXECUTOR_MODE=prod
+      - EXECUTION_TIMEOUT=2000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Required for Docker-in-Docker
+      - /tmp/aicode-jobs:/tmp/aicode-jobs # Shared temp directory
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aicode-network
+
+  analyzer:
+    build:
+      context: ./services/analyzer
+      dockerfile: Dockerfile
+    container_name: aicode-analyzer
+    ports:
+      - "127.0.0.1:3002:3002"
+    environment:
+      - PORT=3002
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_API_URL=${GEMINI_API_URL:-https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent}
+      - CONFIDENCE_THRESHOLD=${CONFIDENCE_THRESHOLD:-0.6}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aicode-network
+
+networks:
+  aicode-network:
+    driver: bridge

@@ -1,0 +1,123 @@
+flowchart TD
+  %% =========================
+  %% Arsitektur Sistem mod_aicode
+  %% =========================
+
+  U1[fa:fa-user Student]
+  U2[fa:fa-chalkboard-teacher Teacher]
+  U3[fa:fa-user-cog Admin]
+
+  subgraph Client["Browser (Frontend)"]
+    P["AICode Activity Page<br/>(view.php + renderer.php)"]
+    E["Editor UI<br/>(AMD mod_aicode/editor + Monaco)<br/>Run | Hint | Send to Teacher"]
+    AJ["Moodle AJAX/WebService Client<br/>(core/ajax)"]
+    P --> E --> AJ
+  end
+
+  subgraph Moodle["Moodle Server (Plugin mod_aicode)"]
+    SVC["Web service registry<br/>(db/services.php)"]
+
+    EP1["WS Endpoint: mod_aicode_run_code<br/>(classes/external/run_code.php)"]
+    EP2["WS Endpoint: mod_aicode_analyze_code<br/>(classes/external/analyze_code.php)"]
+    EP3["WS Endpoint: mod_aicode_record_hint<br/>(classes/external/record_hint.php)"]
+    EP4["WS Endpoint: mod_aicode_send_to_teacher<br/>(classes/external/send_to_teacher.php)"]
+
+    AUTH{{"Security Gate<br/>require_login + sesskey + capability"}}
+
+    CFG["Plugin Settings<br/>(settings.php -> config_plugins)<br/>executor_url, ttl, threshold, rate limit"]
+    AIM["Moodle AI Subsystem<br/>(core_ai manager + generate_text action)<br/>Uses configured provider order"]
+    EVT["Event<br/>(classes/event/course_module_viewed.php)"]
+    GRADE["Gradebook integration<br/>(lib.php -> grade_update)"]
+
+    DB[("Moodle DB<br/>(db/install.xml)")]
+
+    T1["aicode<br/>Problem definition + testcases + starter/template"]
+    T2["aicode_attempts<br/>code_hash + result_json + used_hints_json + ai_feedback_json"]
+    T3["aicode_cache<br/>payload_hash -> ai_response_json (TTL)"]
+    T4["aicode_teacher_overrides<br/>teacher corrected feedback"]
+    T5["aicode_materials<br/>recommended learning materials"]
+
+    DB --- T1
+    DB --- T2
+    DB --- T3
+    DB --- T4
+    DB --- T5
+
+    SVC --> EP1
+    SVC --> EP2
+    SVC --> EP3
+    SVC --> EP4
+
+    EP1 --> AUTH
+    EP2 --> AUTH
+    EP3 --> AUTH
+    EP4 --> AUTH
+
+    AUTH --> CFG
+  end
+
+  subgraph Ext["External Services"]
+    EXE["Executor Microservice<br/>(executor_url)<br/>POST /run"]
+    OLL["Ollama Server<br/>(configured via Moodle AI provider)<br/>POST /api/generate"]
+  end
+
+  %% -------------------------
+  %% Page load
+  %% -------------------------
+  U1 -->|"Open activity"| P
+  U2 -->|"Open activity"| P
+  P -->|"Trigger viewed event"| EVT
+  P -->|"Read problem config"| T1
+
+  %% -------------------------
+  %% Run Code flow
+  %% -------------------------
+  E -->|"Click Run<br/>code + language + problemid"| AJ
+  AJ -->|"AJAX WS: mod_aicode_run_code"| EP1
+  EP1 -->|"Load testcases"| T1
+  EP1 -->|"POST payload<br/>code + language + testcase[]"| EXE
+  EXE -->|"Result JSON<br/>stdout/stderr/exitCode/trace"| EP1
+  EP1 -->|"Insert attempt<br/>code_hash + result_json"| T2
+  EP1 -->|"Return result"| AJ
+  AJ -->|"Render output/errors"| E
+
+  %% -------------------------
+  %% AI Analyze flow
+  %% -------------------------
+  E -->|"If error -> Get AI feedback<br/>code + stderr + trace"| AJ
+  AJ -->|"AJAX WS: mod_aicode_analyze_code"| EP2
+  EP2 -->|"Rate limit check<br/>(count attempts today)"| T2
+  EP2 -->|"Cache lookup (payload_hash)"| T3
+  EP2 -->|"Anonymize code<br/>(strip comments/email)"| EP2
+  EP2 -->|"Prompt + context"| AIM
+  AIM -->|"LLM request"| OLL
+  OLL -->|"Generated text response"| AIM
+  AIM -->|"Feedback JSON<br/>diagnosis + hints + location"| EP2
+  EP2 -->|"Confidence threshold<br/>fallback if low"| EP2
+  EP2 -->|"Cache store ai_response_json"| T3
+  EP2 -->|"Return feedback"| AJ
+  AJ -->|"Show feedback + hints"| E
+
+  %% -------------------------
+  %% Hint tracking
+  %% -------------------------
+  E -->|"Click Hint (level 1-3)"| AJ
+  AJ -->|"AJAX WS: mod_aicode_record_hint"| EP3
+  EP3 -->|"Update latest attempt<br/>used_hints_json"| T2
+  EP3 -->|"OK"| AJ
+
+  %% -------------------------
+  %% Send to Teacher
+  %% -------------------------
+  E -->|"Click Send to Teacher<br/>code"| AJ
+  AJ -->|"AJAX WS: mod_aicode_send_to_teacher"| EP4
+  EP4 -->|"Insert attempt<br/>teacher_review_requested"| T2
+  EP4 -->|"TODO: notification"| U2
+
+  %% -------------------------
+  %% Privacy / GDPR (konseptual)
+  %% -------------------------
+  PRV["Privacy API<br/>(classes/privacy/provider.php)<br/>export/delete attempts<br/>external location: moodleai"]:::note
+  Moodle --- PRV
+
+  classDef note fill:#111827,stroke:#60a5fa,color:#e5e7eb;
