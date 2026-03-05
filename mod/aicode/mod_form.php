@@ -66,6 +66,13 @@ class mod_aicode_mod_form extends moodleform_mod {
         $mform->setDefault('mode', 'training');
         $mform->addHelpButton('mode', 'mode', 'aicode');
 
+        // Optional AI prompt override for this activity (teacher/admin configurable).
+        $mform->addElement('textarea', 'aiprompttemplate', get_string('aiprompttemplate', 'aicode'),
+            ['wrap' => 'virtual', 'rows' => '12', 'cols' => '80']);
+        $mform->setType('aiprompttemplate', PARAM_RAW);
+        $mform->setDefault('aiprompttemplate', '');
+        $mform->addHelpButton('aiprompttemplate', 'aiprompttemplate', 'aicode');
+
         // Test cases (JSON format).
         $mform->addElement('textarea', 'testcases', get_string('testcases', 'aicode'), 
             ['wrap' => 'virtual', 'rows' => '8', 'cols' => '50']);

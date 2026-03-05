@@ -85,6 +85,17 @@ function xmldb_aicode_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026021200, 'aicode');
     }
 
+    if ($oldversion < 2026030200) {
+        $table = new xmldb_table('aicode');
+        $promptfield = new xmldb_field('aiprompttemplate', XMLDB_TYPE_TEXT, null, null, null, null, null, 'mode');
+
+        if (!$dbman->field_exists($table, $promptfield)) {
+            $dbman->add_field($table, $promptfield);
+        }
+
+        upgrade_mod_savepoint(true, 2026030200, 'aicode');
+    }
+
     return true;
 }
 

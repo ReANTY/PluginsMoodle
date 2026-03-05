@@ -22,6 +22,7 @@ use external_value;
 use external_single_structure;
 use core_ai\aiactions\generate_text;
 use core_ai\manager;
+use mod_aicode\local\ai_prompt;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -93,18 +94,19 @@ class analyze_code extends external_api {
             throw new \moodle_exception('Rate limit exceeded. Please try again tomorrow.');
         }
 
+        $prompttemplate = self::resolve_ai_prompt_template($problem);
+
         // Check cache.
-        $payloadhash = hash('sha256', 'feedback-v3|' . $params['code'] . $params['stderr'] . $params['trace']);
+        $payloadhash = hash(
+            'sha256',
+            'feedback-v5|' . hash('sha256', $prompttemplate) . '|' . $params['code'] . $params['stderr'] . $params['trace']
+        );
         $cachettl = get_config('aicode', 'cache_ttl') ?: 3600;
         $cached = $DB->get_record('aicode_cache', ['payload_hash' => $payloadhash]);
 
         if ($cached && ($cached->timecreated + $cachettl) > time() && !empty($cached->ai_response_json)) {
             $cachedfeedback = json_decode($cached->ai_response_json, true);
-            $cachedexplainability = '';
-            if (is_array($cachedfeedback)) {
-                $cachedexplainability = (string)($cachedfeedback['explainability'] ?? '');
-            }
-            if (!self::is_provider_failure_explainability($cachedexplainability)) {
+            if (self::is_success_feedback($cachedfeedback)) {
                 return ['feedback' => $cached->ai_response_json];
             }
         }
@@ -116,29 +118,39 @@ class analyze_code extends external_api {
             (int)$USER->id,
             $anonymizedcode,
             (string)$params['stderr'],
-            (string)$params['trace']
+            (string)$params['trace'],
+            $prompttemplate
         );
         if (!is_array($feedback)) {
-            $feedback = self::get_fallback_feedback($params['stderr']);
+            $feedback = self::build_ai_error_feedback(
+                'Feedback AI tidak dapat diproses. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                'invalid_feedback_payload'
+            );
         }
 
-        // Validate confidence threshold.
+        // Validate confidence threshold for successful AI responses only.
         $threshold = get_config('aicode', 'confidence_threshold') ?: 0.6;
-        if (isset($feedback['diagnosis']['confidence']) && $feedback['diagnosis']['confidence'] < $threshold) {
-            // Fall back to rule-based response.
-            $feedback = self::get_fallback_feedback($params['stderr']);
-            $feedback['explainability'] = 'Moodle AI response below confidence threshold.';
+        if (self::is_success_feedback($feedback) && isset($feedback['diagnosis']['confidence'])
+                && $feedback['diagnosis']['confidence'] < $threshold) {
+            $feedback = self::build_ai_error_feedback(
+                'Respons Moodle AI berada di bawah ambang kepercayaan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                'low_confidence'
+            );
         }
 
         $feedbackjson = json_encode($feedback);
         if ($feedbackjson === false) {
-            $feedback = self::get_fallback_feedback($params['stderr']);
-            $feedback['explainability'] = 'Fallback used because JSON encoding failed.';
+            $feedback = self::build_ai_error_feedback(
+                'Gagal mengubah respons AI ke format JSON. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                'json_encoding_failed'
+            );
             $feedbackjson = json_encode($feedback);
+            if ($feedbackjson === false) {
+                throw new \moodle_exception('erroraifeedback', 'aicode');
+            }
         }
 
-        $explainability = (string)($feedback['explainability'] ?? '');
-        $shouldcache = !self::is_provider_failure_explainability($explainability);
+        $shouldcache = self::is_success_feedback($feedback);
 
         // Cache the response (update stale record if it already exists).
         if ($shouldcache) {
@@ -184,109 +196,117 @@ class analyze_code extends external_api {
      * @param string $code
      * @param string $stderr
      * @param string $trace
+     * @param string $prompttemplate
      * @return array
      */
-    private static function get_feedback_from_moodle_ai($contextid, $userid, $code, $stderr, $trace) {
+    private static function get_feedback_from_moodle_ai($contextid, $userid, $code, $stderr, $trace, $prompttemplate) {
         if (!class_exists(manager::class) || !class_exists(generate_text::class)) {
-            $feedback = self::get_fallback_feedback($stderr);
-            $feedback['explainability'] = 'Moodle AI subsystem is not available.';
-            return $feedback;
+            return self::build_ai_error_feedback(
+                'Subsystem Moodle AI tidak tersedia. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                'ai_subsystem_unavailable'
+            );
         }
 
         try {
             $aimanager = \core\di::get(manager::class);
             if (!$aimanager->is_action_available(generate_text::class)) {
-                $feedback = self::get_fallback_feedback($stderr);
-                $feedback['explainability'] = 'No Moodle AI provider is available for text generation.';
-                return $feedback;
+                return self::build_ai_error_feedback(
+                    'Tidak ada provider Moodle AI untuk generasi teks. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'ai_provider_unavailable'
+                );
             }
 
-            $prompt = self::build_ai_feedback_prompt($code, $stderr, $trace);
+            $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace);
             $action = new generate_text($contextid, $userid, $prompt);
             $response = $aimanager->process_action($action);
 
             if (!$response->get_success()) {
-                $feedback = self::get_fallback_feedback($stderr);
-                $feedback['explainability'] = 'Moodle AI provider error: ' . $response->get_errormessage();
-                return $feedback;
+                $reason = trim((string)$response->get_errormessage());
+                if ($reason === '') {
+                    $reason = 'Provider Moodle AI gagal memproses permintaan.';
+                } else {
+                    $reason = 'Kesalahan provider Moodle AI: ' . $reason;
+                }
+                return self::build_ai_error_feedback(
+                    $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'ai_provider_error'
+                );
             }
 
             $responsedata = $response->get_response_data();
             $generatedcontent = trim((string)($responsedata['generatedcontent'] ?? ''));
             $feedback = self::extract_feedback_json($generatedcontent);
 
-            if (!is_array($feedback) || empty($feedback['diagnosis'])) {
-                $fallback = self::get_fallback_feedback($stderr);
-                $fallback['explainability'] = 'Moodle AI response format was invalid.';
-                return $fallback;
+            if (!is_array($feedback)) {
+                return self::build_ai_error_feedback(
+                    'Format respons Moodle AI tidak valid. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'invalid_ai_response_format'
+                );
             }
 
-            $normalized = self::normalize_feedback($feedback, $stderr);
+            $normalized = self::normalize_feedback($feedback);
             $modelused = $response->get_model_used();
             if (!empty($modelused)) {
                 $normalized['explainability'] = trim($normalized['explainability'] . ' (model: ' . $modelused . ')');
             }
 
+            if (!self::is_success_feedback($normalized)) {
+                return self::build_ai_error_feedback(
+                    'Respons Moodle AI tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'invalid_ai_feedback_schema'
+                );
+            }
+
             return $normalized;
         } catch (\Throwable $e) {
-            $feedback = self::get_fallback_feedback($stderr);
-            $feedback['explainability'] = 'Moodle AI request failed: ' . $e->getMessage();
-            return $feedback;
+            $reason = trim((string)$e->getMessage());
+            if ($reason === '') {
+                $reason = 'Permintaan Moodle AI gagal.';
+            } else {
+                $reason = 'Permintaan Moodle AI gagal: ' . $reason;
+            }
+            return self::build_ai_error_feedback(
+                $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                'ai_request_failed'
+            );
         }
     }
 
     /**
      * Build AI prompt for strict JSON diagnostic response.
      *
+     * @param string $prompttemplate
      * @param string $code
      * @param string $stderr
      * @param string $trace
      * @return string
      */
-    private static function build_ai_feedback_prompt($code, $stderr, $trace) {
-        return "You are an expert JavaScript tutor for beginners.\n"
-            . "Analyze the student's code and execution errors.\n"
-            . "Return ONLY a valid JSON object (no markdown, no backticks, no explanation outside JSON).\n\n"
-            . "Required JSON schema:\n"
-            . "{\n"
-            . "  \"diagnosis\": {\n"
-            . "    \"category\": \"syntax|runtime|logic|style|security|performance\",\n"
-            . "    \"confidence\": 0.0,\n"
-            . "    \"message_short\": \"short sentence\",\n"
-            . "    \"message_long\": \"2-3 sentences for beginner\"\n"
-            . "  },\n"
-            . "  \"location\": {\n"
-            . "    \"line\": 0,\n"
-            . "    \"column\": 0,\n"
-            . "    \"snippet\": \"relevant snippet\"\n"
-            . "  },\n"
-            . "  \"hints\": [\n"
-            . "    \"best actionable guidance\",\n"
-            . "    \"deeper explanation to avoid repeating the same mistake\"\n"
-            . "  ],\n"
-            . "  \"suggested_fix\": {\n"
-            . "    \"explanation\": \"step-by-step what to change and why\",\n"
-            . "    \"code_patch\": \"minimal corrected code snippet\"\n"
-            . "  },\n"
-            . "  \"recommended_materials\": [\n"
-            . "    {\"title\": \"resource title\", \"url\": \"https://example.com\", \"reason\": \"why this helps\"}\n"
-            . "  ],\n"
-            . "  \"explainability\": \"brief reason for diagnosis\"\n"
-            . "}\n\n"
-            . "Rules:\n"
-            . "- If location is unknown, use line 0 and column 0.\n"
-            . "- Confidence must be between 0 and 1.\n"
-            . "- Give detailed but beginner-friendly feedback.\n"
-            . "- Hints must not use levels, and must focus on root cause plus prevention.\n"
-            . "- Suggested fix should be concrete, practical, and easy to apply.\n"
-            . "- Recommended materials should be trustworthy, with real URLs when possible.\n"
-            . "- If no reliable code patch, set suggested_fix to null.\n\n"
-            . "Student code:\n"
-            . $code . "\n\n"
-            . "stderr:\n"
-            . $stderr . "\n\n"
-            . "trace:\n"
-            . $trace . "\n";
+    private static function build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace) {
+        $template = trim((string)$prompttemplate);
+        if ($template === '') {
+            $template = ai_prompt::get_default_template();
+        }
+        return ai_prompt::render_template($template, (string)$code, (string)$stderr, (string)$trace);
+    }
+
+    /**
+     * Resolve AI prompt template from activity override or plugin setting.
+     *
+     * @param \stdClass $problem
+     * @return string
+     */
+    private static function resolve_ai_prompt_template($problem) {
+        $activitytemplate = trim((string)($problem->aiprompttemplate ?? ''));
+        if ($activitytemplate !== '') {
+            return $activitytemplate;
+        }
+
+        $globaltemplate = trim((string)get_config('aicode', 'ai_feedback_prompt_template'));
+        if ($globaltemplate !== '') {
+            return $globaltemplate;
+        }
+
+        return ai_prompt::get_default_template();
     }
 
     /**
@@ -321,31 +341,6 @@ class analyze_code extends external_api {
         }
 
         return null;
-    }
-
-    /**
-     * Determine whether explainability indicates provider-side AI failure.
-     *
-     * @param string $explainability
-     * @return bool
-     */
-    private static function is_provider_failure_explainability($explainability) {
-        if ($explainability === '') {
-            return false;
-        }
-        $prefixes = [
-            'Moodle AI request failed:',
-            'Moodle AI provider error:',
-            'No Moodle AI provider is available',
-            'Moodle AI subsystem is not available.',
-            'Moodle AI response format was invalid.',
-        ];
-        foreach ($prefixes as $prefix) {
-            if (strpos($explainability, $prefix) === 0) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -398,21 +393,99 @@ class analyze_code extends external_api {
     }
 
     /**
+     * Build standardized AI error payload for frontend.
+     *
+     * @param string $reason
+     * @param string $code
+     * @return array
+     */
+    private static function build_ai_error_feedback($reason, $code = 'feedback_unavailable') {
+        $cleanreason = trim((string)$reason);
+        if ($cleanreason === '') {
+            $cleanreason = 'Feedback AI belum tersedia saat ini.';
+        }
+
+        return [
+            'status' => 'error',
+            'error' => [
+                'code' => (string)$code,
+                'message' => 'Feedback AI gagal diberikan saat ini.',
+                'reason' => $cleanreason,
+                'action' => 'Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+            ],
+            'explainability' => $cleanreason,
+        ];
+    }
+
+    /**
+     * Determine whether payload contains successful AI feedback.
+     *
+     * @param mixed $feedback
+     * @return bool
+     */
+    private static function is_success_feedback($feedback) {
+        if (!is_array($feedback)) {
+            return false;
+        }
+
+        $status = (string)($feedback['status'] ?? 'success');
+        if ($status !== 'success') {
+            return false;
+        }
+
+        if (empty($feedback['diagnosis']) || !is_array($feedback['diagnosis'])) {
+            return false;
+        }
+
+        $diagnosis = $feedback['diagnosis'];
+        $shortmessage = trim((string)($diagnosis['message_short'] ?? ''));
+        $longmessage = trim((string)($diagnosis['message_long'] ?? ''));
+        if ($shortmessage === '' || $longmessage === '') {
+            return false;
+        }
+
+        $confidence = (float)($diagnosis['confidence'] ?? -1);
+        if ($confidence < 0 || $confidence > 1) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Normalize model feedback into stable schema for frontend.
      *
      * @param array $feedback
-     * @param string $stderr
      * @return array
      */
-    private static function normalize_feedback($feedback, $stderr) {
-        $normalized = self::get_fallback_feedback($stderr);
+    private static function normalize_feedback($feedback) {
+        $normalized = [
+            'status' => 'success',
+            'diagnosis' => [
+                'category' => 'runtime',
+                'confidence' => 0.0,
+                'message_short' => '',
+                'message_long' => '',
+            ],
+            'location' => [
+                'line' => 0,
+                'column' => 0,
+                'snippet' => '',
+            ],
+            'hints' => [],
+            'suggested_fix' => null,
+            'recommended_materials' => [],
+            'explainability' => 'Dihasilkan oleh provider Moodle AI.',
+        ];
 
         if (!empty($feedback['diagnosis']) && is_array($feedback['diagnosis'])) {
             $diagnosis = $feedback['diagnosis'];
-            $normalized['diagnosis']['category'] = (string)($diagnosis['category'] ?? $normalized['diagnosis']['category']);
+            $normalized['diagnosis']['category'] = self::normalize_diagnosis_category(
+                (string)($diagnosis['category'] ?? $normalized['diagnosis']['category'])
+            );
             $normalized['diagnosis']['confidence'] = max(0.0, min(1.0, (float)($diagnosis['confidence'] ?? $normalized['diagnosis']['confidence'])));
-            $normalized['diagnosis']['message_short'] = (string)($diagnosis['message_short'] ?? $normalized['diagnosis']['message_short']);
-            $normalized['diagnosis']['message_long'] = (string)($diagnosis['message_long'] ?? $normalized['diagnosis']['message_long']);
+            $normalized['diagnosis']['message_short'] = trim((string)($diagnosis['message_short'] ?? $normalized['diagnosis']['message_short']));
+            $normalized['diagnosis']['message_long'] = trim((string)($diagnosis['message_long'] ?? $normalized['diagnosis']['message_long']));
         }
 
         if (!empty($feedback['location']) && is_array($feedback['location'])) {
@@ -479,198 +552,25 @@ class analyze_code extends external_api {
         if (!empty($feedback['explainability'])) {
             $normalized['explainability'] = (string)$feedback['explainability'];
         } else {
-            $normalized['explainability'] = 'Generated by Moodle AI provider.';
+            $normalized['explainability'] = 'Dihasilkan oleh provider Moodle AI.';
         }
 
         return $normalized;
     }
 
     /**
-     * Get fallback rule-based feedback
+     * Normalize diagnosis category to allowed values.
      *
-     * @param string $stderr
-     * @return array
-     */
-    private static function get_fallback_feedback($stderr) {
-        $errortext = trim((string)$stderr);
-        $firstline = self::extract_first_error_line($errortext);
-        $location = self::extract_location_from_stderr($errortext);
-        $category = 'runtime';
-        $message = 'A runtime error happened while your code was running.';
-        $messagelong = 'Your code runs, but it fails during execution. Focus on the first error line, check variable values, and verify scope and data type at that exact point.';
-        $hints = [
-            'Read only the first error line first, then inspect the related code block.',
-            'Check variable names and values right before the failing line with console.log.',
-            'Test your code in small steps so you can isolate where the wrong value appears.',
-        ];
-        $suggestedfix = [
-            'explanation' => 'Review the failing line and the lines before it. Make sure every variable is declared and has the expected type before you use it.',
-            'code_patch' => "console.log('debug value:', value);\n// Verify value exists and has the expected type before using it.",
-        ];
-        $materials = [
-            [
-                'title' => 'MDN JavaScript guide: Debugging',
-                'url' => 'https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Debugging_JavaScript',
-                'reason' => 'Step-by-step debugging process for beginners.',
-            ],
-            [
-                'title' => 'MDN console.log() reference',
-                'url' => 'https://developer.mozilla.org/en-US/docs/Web/API/console/log_static',
-                'reason' => 'Shows how to inspect values while your code runs.',
-            ],
-        ];
-
-        if (strpos($errortext, 'SyntaxError') !== false) {
-            $category = 'syntax';
-            $message = 'There is a syntax error in your code.';
-            $messagelong = 'JavaScript cannot parse your code structure. This usually means missing or extra brackets, commas, quotes, or parentheses.';
-            $hints = [
-                'Check the line before the reported error because syntax issues often start earlier.',
-                'Make sure every opening bracket, brace, parenthesis, and quote has a closing pair.',
-                'Write short statements first, run again, then add complexity gradually.',
-            ];
-            $suggestedfix = [
-                'explanation' => 'Fix unmatched symbols and split long expressions into smaller lines. This makes parse errors easier to catch.',
-                'code_patch' => "if (condition) {\n  doSomething();\n}\n// Ensure brackets and punctuation are balanced.",
-            ];
-            $materials = [
-                [
-                    'title' => 'MDN SyntaxError reference',
-                    'url' => 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError',
-                    'reason' => 'Explains common syntax mistakes and how to fix them.',
-                ],
-                [
-                    'title' => 'JavaScript statements and declarations',
-                    'url' => 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements',
-                    'reason' => 'Helps you understand correct JavaScript statement structure.',
-                ],
-            ];
-        } else if (strpos($errortext, 'ReferenceError') !== false || preg_match('/\bis not defined\b/i', $errortext)) {
-            $category = 'runtime';
-            $message = 'A variable is used before it is declared or available in scope.';
-            $messagelong = 'The runtime cannot find one of the variable names you are using. This usually happens because of a typo, missing declaration, or scope mismatch.';
-            $hints = [
-                'Declare variables with const or let before using them.',
-                'Use exactly the same variable name everywhere (JavaScript is case-sensitive).',
-                'If the variable is created inside a function/block, it cannot be used outside that scope.',
-            ];
-            $suggestedfix = [
-                'explanation' => 'Locate the undefined variable in the error message. Then either declare it before use or replace it with the correct existing variable name.',
-                'code_patch' => "const numbers = [1, 2, 3];\nconst total = numbers.reduce((sum, n) => sum + n, 0);\nconsole.log(total);",
-            ];
-            $materials = [
-                [
-                    'title' => 'MDN ReferenceError reference',
-                    'url' => 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ReferenceError',
-                    'reason' => 'Explains why variables are reported as undefined.',
-                ],
-                [
-                    'title' => 'MDN let declaration',
-                    'url' => 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let',
-                    'reason' => 'Shows correct variable declaration and block scope usage.',
-                ],
-                [
-                    'title' => 'MDN JavaScript scope glossary',
-                    'url' => 'https://developer.mozilla.org/en-US/docs/Glossary/Scope',
-                    'reason' => 'Builds understanding of local and global scope to prevent repeated mistakes.',
-                ],
-            ];
-        } else if (strpos($errortext, 'TypeError') !== false || preg_match('/cannot read (properties|property) of/i', $errortext)) {
-            $category = 'runtime';
-            $message = 'A value is used with the wrong data type.';
-            $messagelong = 'Your code tries to call a method or access a property on a value that does not support it (often undefined or null).';
-            $hints = [
-                'Check the real value before using it: console.log(value).',
-                'Guard against undefined/null before reading properties.',
-                'Confirm the value type matches the method you want to call.',
-            ];
-            $suggestedfix = [
-                'explanation' => 'Validate values before property access to avoid runtime failures.',
-                'code_patch' => "if (user && user.name) {\n  console.log(user.name);\n}\n// Guard null/undefined values before use.",
-            ];
-            $materials = [
-                [
-                    'title' => 'MDN TypeError reference',
-                    'url' => 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError',
-                    'reason' => 'Explains common type misuse scenarios.',
-                ],
-                [
-                    'title' => 'MDN Optional chaining',
-                    'url' => 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining',
-                    'reason' => 'Shows safer access patterns for nested properties.',
-                ],
-            ];
-        }
-
-        if ($firstline !== '') {
-            $messagelong .= ' Runtime message: ' . $firstline;
-        }
-
-        return [
-            'diagnosis' => [
-                'category' => $category,
-                'confidence' => 0.5,
-                'message_short' => $message,
-                'message_long' => $messagelong,
-            ],
-            'location' => $location,
-            'hints' => array_map(function($hint) {
-                return ['hint' => $hint];
-            }, $hints),
-            'suggested_fix' => $suggestedfix,
-            'recommended_materials' => $materials,
-            'explainability' => 'Rule-based fallback because AI response was unavailable, invalid, or below confidence threshold.',
-        ];
-    }
-
-    /**
-     * Extract first meaningful error line from stderr.
-     *
-     * @param string $stderr
+     * @param string $category
      * @return string
      */
-    private static function extract_first_error_line($stderr) {
-        if ($stderr === '') {
-            return '';
+    private static function normalize_diagnosis_category($category) {
+        $allowed = ['syntax', 'runtime', 'logic', 'style', 'security', 'performance'];
+        $normalized = strtolower(trim((string)$category));
+        if (in_array($normalized, $allowed, true)) {
+            return $normalized;
         }
-
-        $lines = preg_split('/\R/', $stderr);
-        foreach ($lines as $line) {
-            $trimmed = trim((string)$line);
-            if ($trimmed === '') {
-                continue;
-            }
-            if (strpos($trimmed, 'at ') === 0) {
-                continue;
-            }
-            return substr($trimmed, 0, 280);
-        }
-
-        return '';
-    }
-
-    /**
-     * Extract best-effort line and column from stderr.
-     *
-     * @param string $stderr
-     * @return array
-     */
-    private static function extract_location_from_stderr($stderr) {
-        $line = 0;
-        $column = 0;
-
-        if (preg_match('/:(\d+):(\d+)/', $stderr, $matches)) {
-            $line = (int)$matches[1];
-            $column = (int)$matches[2];
-        } else if (preg_match('/line\s+(\d+)/i', $stderr, $matches)) {
-            $line = (int)$matches[1];
-        }
-
-        return [
-            'line' => max(0, $line),
-            'column' => max(0, $column),
-            'snippet' => '',
-        ];
+        return 'runtime';
     }
 
     /**

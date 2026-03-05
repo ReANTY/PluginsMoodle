@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/aicode/db" VERSION="20260120" COMMENT="XMLDB file for Moodle mod/aicode"
+<XMLDB PATH="mod/aicode/db" VERSION="2026030200" COMMENT="XMLDB file for Moodle mod/aicode"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -19,6 +19,7 @@
         <FIELD NAME="csstemplate" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="allow_training" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="mode" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="training" SEQUENCE="false" COMMENT="Activity mode: training or exam"/>
+        <FIELD NAME="aiprompttemplate" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional per-activity AI prompt template override"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>

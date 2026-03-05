@@ -82,6 +82,7 @@ function aicode_add_instance(stdClass $aicode, mod_aicode_mod_form $mform = null
     $record->csstemplate = $aicode->csstemplate ?? '';
     $record->allow_training = $aicode->allow_training ?? 0;
     $record->mode = $aicode->mode ?? 'training';
+    $record->aiprompttemplate = $aicode->aiprompttemplate ?? '';
     $record->timecreated = $aicode->timecreated;
     $record->timemodified = $aicode->timemodified;
 
@@ -141,6 +142,7 @@ function aicode_update_instance(stdClass $aicode, mod_aicode_mod_form $mform = n
     $record->csstemplate = $aicode->csstemplate ?? '';
     $record->allow_training = $aicode->allow_training ?? 0;
     $record->mode = $aicode->mode ?? 'training';
+    $record->aiprompttemplate = $aicode->aiprompttemplate ?? '';
     $record->timemodified = $aicode->timemodified;
 
     $result = $DB->update_record('aicode', $record);

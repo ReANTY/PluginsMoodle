@@ -17,12 +17,31 @@
 defined('MOODLE_INTERNAL') || die;
 
 if ($ADMIN->fulltree) {
+    $promptclass = '\mod_aicode\local\ai_prompt';
+    $defaultprompttemplate = '';
+    if (!class_exists($promptclass)) {
+        $prompthelperfile = __DIR__ . '/classes/local/ai_prompt.php';
+        if (is_readable($prompthelperfile)) {
+            require_once($prompthelperfile);
+        }
+    }
+    if (class_exists($promptclass)) {
+        $defaultprompttemplate = $promptclass::get_default_template();
+    }
+
     // Executor service URL.
     $settings->add(new admin_setting_configtext('aicode/executor_url',
         get_string('executorurl', 'aicode'),
         get_string('executorurl_desc', 'aicode'),
         'http://127.0.0.1:3001',
         PARAM_URL));
+
+    // Default AI feedback prompt template.
+    $settings->add(new admin_setting_configtextarea('aicode/ai_feedback_prompt_template',
+        get_string('aifeedbackprompttemplate', 'aicode'),
+        get_string('aifeedbackprompttemplate_desc', 'aicode'),
+        $defaultprompttemplate,
+        PARAM_RAW));
 
     // Confidence threshold for AI feedback.
     $settings->add(new admin_setting_configtext('aicode/confidence_threshold',

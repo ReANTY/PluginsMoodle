@@ -883,21 +883,76 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
   };
 
   /**
-   * Parse feedback response and normalize fallback behavior
-   * @param {object} response
-   * @param {string} stderr
+   * Build standardized AI failure payload for UI
+   * @param {string} reason
+   * @param {string} code
    * @return {object}
    */
-  const parseAIFeedbackResponse = function (response, stderr) {
+  const buildUnavailableFeedback = function (reason, code) {
+    const cleanReason = String(reason || "").trim() || "Feedback AI belum tersedia saat ini.";
+    return {
+      status: "error",
+      error: {
+        code: String(code || "feedback_unavailable"),
+        message: "Feedback AI gagal diberikan saat ini.",
+        reason: cleanReason,
+        action: "Silakan klik tombol Bantuan lagi beberapa saat lagi.",
+      },
+      explainability: cleanReason,
+    };
+  };
+
+  /**
+   * Parse provider or ajax error into readable reason
+   * @param {*} error
+   * @return {string}
+   */
+  const extractFeedbackFailureReason = function (error) {
+    if (!error) {
+      return "Permintaan analisis AI gagal diproses.";
+    }
+    if (typeof error === "string") {
+      return error;
+    }
+    if (error.message) {
+      return String(error.message);
+    }
+    if (error.error && error.error.message) {
+      return String(error.error.message);
+    }
+    if (error.error && error.error.error) {
+      return String(error.error.error);
+    }
+    return "Permintaan analisis AI gagal diproses.";
+  };
+
+  /**
+   * Parse feedback response without creating diagnosis fallback
+   * @param {object} response
+   * @return {object}
+   */
+  const parseAIFeedbackResponse = function (response) {
     let feedback = null;
     try {
       feedback = JSON.parse(response.feedback);
     } catch (e) {
-      feedback = null;
+      return buildUnavailableFeedback("Format respons AI tidak valid.", "invalid_json");
     }
-    if (!feedback || !feedback.diagnosis) {
-      feedback = buildFallbackFeedback(stderr || "");
+
+    if (!feedback || typeof feedback !== "object") {
+      return buildUnavailableFeedback("Respons AI kosong atau tidak dapat dibaca.", "empty_response");
     }
+
+    if (feedback.status === "error" || feedback.error) {
+      const reason = feedback.error && feedback.error.reason ? feedback.error.reason : feedback.explainability;
+      return buildUnavailableFeedback(reason, feedback.error && feedback.error.code ? feedback.error.code : "ai_error");
+    }
+
+    if (!feedback.diagnosis) {
+      return buildUnavailableFeedback("Respons AI tidak memuat diagnosis yang diperlukan.", "missing_diagnosis");
+    }
+
+    feedback.status = "success";
     return feedback;
   };
 
@@ -940,7 +995,17 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
    * @param {string} sesskey
    */
   const renderHintFeedback = function (feedback, problemId, sesskey) {
-    if (!feedback || !feedback.diagnosis) {
+    if (!feedback) {
+      return;
+    }
+    if (feedback.status === "error" || feedback.error) {
+      displayFeedbackUnavailable(feedback);
+      hintRequested = false;
+      return;
+    }
+    if (!feedback.diagnosis) {
+      displayFeedbackUnavailable(buildUnavailableFeedback("Respons AI tidak memuat diagnosis.", "missing_diagnosis"));
+      hintRequested = false;
       return;
     }
     displayFeedback(feedback);
@@ -998,7 +1063,7 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
       }
       aiFeedbackPromise = null;
       setHintButtonLoading(false);
-      if (hintRequested && cachedFeedback && cachedFeedback.diagnosis) {
+      if (hintRequested && cachedFeedback) {
         renderHintFeedback(cachedFeedback, problemId, sesskey);
       }
     };
@@ -1008,17 +1073,21 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
           if (requestId !== aiFeedbackRequestId) {
             return null;
           }
-          const feedback = parseAIFeedbackResponse(response, normalizedPayload.stderr);
+          const feedback = parseAIFeedbackResponse(response);
           cachedFeedback = feedback;
           return feedback;
         },
-        function () {
+        function (error) {
           if (requestId !== aiFeedbackRequestId) {
             return null;
           }
-          const fallback = buildFallbackFeedback(normalizedPayload.stderr);
-          cachedFeedback = fallback;
-          return fallback;
+          const reason = extractFeedbackFailureReason(error);
+          const unavailable = buildUnavailableFeedback(
+            reason + " Silakan klik tombol Bantuan lagi beberapa saat lagi.",
+            "ajax_request_failed"
+          );
+          cachedFeedback = unavailable;
+          return unavailable;
         }
       )
       .then(
@@ -1065,170 +1134,22 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
   };
 
   /**
-   * Build fallback AI feedback on the client
-   * @param {string} stderr
-   * @return {object}
+   * Display AI feedback failure
+   * @param {object} feedback
    */
-  const buildFallbackFeedback = function (stderr) {
-    const message = String(stderr || "").trim();
-    const fullMessage = message || "An error occurred during execution.";
-    let firstLine = "";
-    const lines = fullMessage.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const trimmed = String(lines[i] || "").trim();
-      if (!trimmed) {
-        continue;
-      }
-      if (trimmed.indexOf("at ") === 0) {
-        continue;
-      }
-      firstLine = trimmed;
-      break;
-    }
+  const displayFeedbackUnavailable = function (feedback) {
+    const error = feedback && feedback.error ? feedback.error : {};
+    const message = String(error.message || "Feedback AI gagal diberikan saat ini.");
+    const reason = String(error.reason || feedback.explainability || "Penyebab tidak tersedia.");
+    const action = String(error.action || "Silakan klik tombol Bantuan lagi beberapa saat lagi.");
 
-    let category = "runtime";
-    let shortMessage = "A runtime error happened while your code was running.";
-    let longMessage =
-      "Your code runs, but it fails during execution. Focus on the first error line, " +
-      "check variable values, and verify scope and data type at that point.";
-    let hints = [
-      "Read the first error line first, then inspect the related code block.",
-      "Check variable names and values right before the failing line using console.log.",
-      "Run your code in small steps so you can isolate where the wrong value appears.",
-    ];
-    let suggestedFix = {
-      explanation: "Review the failing line and confirm every variable is declared and has the expected type before use.",
-      code_patch: "console.log('debug value:', value);\n// Verify value exists and has the expected type before using it.",
-    };
-    let recommendedMaterials = [
-      {
-        title: "MDN JavaScript guide: Debugging",
-        url: "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/Debugging_JavaScript",
-        reason: "Step-by-step debugging process for beginners.",
-      },
-      {
-        title: "MDN console.log() reference",
-        url: "https://developer.mozilla.org/en-US/docs/Web/API/console/log_static",
-        reason: "Shows how to inspect values while your code runs.",
-      },
-    ];
-
-    if (fullMessage.includes("SyntaxError")) {
-      category = "syntax";
-      shortMessage = "There is a syntax error in your code.";
-      longMessage =
-        "JavaScript cannot parse your code structure. This usually means missing or " +
-        "extra brackets, commas, quotes, or parentheses.";
-      hints = [
-        "Check the line before the reported error because syntax issues often start earlier.",
-        "Make sure each opening bracket, brace, parenthesis, and quote has a closing pair.",
-        "Write shorter statements first, run again, then add complexity gradually.",
-      ];
-      suggestedFix = {
-        explanation: "Fix unmatched symbols and split long expressions into smaller lines so parse errors are easier to detect.",
-        code_patch: "if (condition) {\n  doSomething();\n}\n// Ensure brackets and punctuation are balanced.",
-      };
-      recommendedMaterials = [
-        {
-          title: "MDN SyntaxError reference",
-          url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError",
-          reason: "Explains common syntax mistakes and how to fix them.",
-        },
-        {
-          title: "JavaScript statements and declarations",
-          url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements",
-          reason: "Helps you understand correct JavaScript statement structure.",
-        },
-      ];
-    } else if (fullMessage.includes("ReferenceError") || /\bis not defined\b/i.test(fullMessage)) {
-      category = "runtime";
-      shortMessage = "A variable is used before it is declared or available in scope.";
-      longMessage =
-        "The runtime cannot find one of the variable names you are using. " +
-        "This usually happens because of a typo, missing declaration, or scope mismatch.";
-      hints = [
-        "Declare variables with const or let before using them.",
-        "Use exactly the same variable name everywhere because JavaScript is case-sensitive.",
-        "If a variable is declared inside a function or block, it is not available outside that scope.",
-      ];
-      suggestedFix = {
-        explanation:
-          "Find the undefined variable in the error message, then declare it " +
-          "before use or replace it with the correct existing variable name.",
-        code_patch: "const numbers = [1, 2, 3];\nconst total = numbers.reduce((sum, n) => sum + n, 0);\nconsole.log(total);",
-      };
-      recommendedMaterials = [
-        {
-          title: "MDN ReferenceError reference",
-          url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ReferenceError",
-          reason: "Explains why variables are reported as undefined.",
-        },
-        {
-          title: "MDN let declaration",
-          url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let",
-          reason: "Shows correct variable declaration and block scope usage.",
-        },
-        {
-          title: "MDN JavaScript scope glossary",
-          url: "https://developer.mozilla.org/en-US/docs/Glossary/Scope",
-          reason: "Builds understanding of local and global scope to prevent repeated mistakes.",
-        },
-      ];
-    } else if (fullMessage.includes("TypeError") || /cannot read (property|properties) of/i.test(fullMessage)) {
-      category = "runtime";
-      shortMessage = "A value is used with the wrong data type.";
-      longMessage =
-        "Your code tries to call a method or access a property on a value that does not support it, often undefined or null.";
-      hints = [
-        "Check the actual value before using it: console.log(value).",
-        "Guard against undefined or null before reading properties.",
-        "Make sure the value type matches the method you want to call.",
-      ];
-      suggestedFix = {
-        explanation: "Validate values before property access to avoid runtime failures.",
-        code_patch: "if (user && user.name) {\n  console.log(user.name);\n}\n// Guard null/undefined values before use.",
-      };
-      recommendedMaterials = [
-        {
-          title: "MDN TypeError reference",
-          url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError",
-          reason: "Explains common type misuse scenarios.",
-        },
-        {
-          title: "MDN Optional chaining",
-          url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining",
-          reason: "Shows safer access patterns for nested properties.",
-        },
-      ];
-    }
-
-    if (firstLine) {
-      longMessage += " Runtime message: " + firstLine;
-    }
-
-    let line = 0;
-    let column = 0;
-    const match = fullMessage.match(/:(\d+):(\d+)/);
-    if (match) {
-      line = parseInt(match[1], 10) || 0;
-      column = parseInt(match[2], 10) || 0;
-    }
-
-    return {
-      diagnosis: {
-        category: category,
-        confidence: 0.5,
-        message_short: shortMessage,
-        message_long: longMessage,
-      },
-      location: { line: line, column: column, snippet: "" },
-      hints: hints.map(function (hint) {
-        return { hint: hint };
-      }),
-      suggested_fix: suggestedFix,
-      recommended_materials: recommendedMaterials,
-      explainability: "Client-side fallback because AI response was unavailable or invalid.",
-    };
+    let html = '<div class="alert alert-warning">';
+    html += "<h5>Feedback AI Belum Tersedia</h5>";
+    html += `<p><strong>${escapeHtml(message)}</strong></p>`;
+    html += `<p class="mb-1">Alasan: ${escapeHtml(reason)}</p>`;
+    html += `<p class="mb-0">${escapeHtml(action)}</p>`;
+    html += "</div>";
+    $("#aicode-feedback").html(html);
   };
 
   /**

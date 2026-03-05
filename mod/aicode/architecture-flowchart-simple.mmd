@@ -7,14 +7,12 @@ flowchart LR
 
   subgraph Frontend["Browser (Frontend)"]
     Page["Activity Page<br/>view.php + renderer.php"]
-    UI["Editor UI<br/>amd/src/editor.js<br/>Run | Hint | Submit | History"]
-    Ajax["AJAX Client<br/>core/ajax"]
-    Preview["Preview iframe + error panel"]
+    UI["Editor UI<br/>Run | Hint | Submit | History"]
+    Preview["Preview + Error Panel"]
     History["Riwayat lokal<br/>sessionStorage"]
   end
 
   subgraph Backend["Moodle Server (mod_aicode)"]
-    Registry["WS Registry<br/>db/services.php"]
     Gate{{"Access Guard<br/>context + capability + sesskey"}}
     Settings["Admin Settings<br/>executor_url, prompt template,<br/>confidence_threshold, cache_ttl, max_calls_per_day"]
 
@@ -25,75 +23,56 @@ flowchart LR
 
     PromptResolver["Prompt Resolver<br/>activity -> global -> default"]
     AIMgr["Moodle AI Manager<br/>core_ai + generate_text"]
-    ViewedEvent["course_module_viewed"]
-    Privacy["Privacy Provider"]
-    Gradebook["Gradebook Hook"]
   end
 
   subgraph Data["Moodle Database"]
     TblAicode[("aicode")]
     TblAttempts[("aicode_attempts")]
     TblCache[("aicode_cache")]
-    TblExtra[("aicode_teacher_overrides / aicode_materials")]
   end
 
   subgraph External["External Services"]
     Executor["Executor Service<br/>POST /run"]
-    AIProvider["AI Provider via Moodle AI<br/>(contoh: Ollama)"]
+    AIProvider["AI Provider via Moodle AI"]
   end
 
   Student -->|"Akses aktivitas"| Page
   Teacher -->|"Akses aktivitas"| Page
   Admin -->|"Konfigurasi plugin"| Settings
 
-  Page --> UI
   Page -->|"Load problem"| TblAicode
-  Page -->|"Trigger event"| ViewedEvent
+  Page --> UI
   UI --> Preview
   UI --> History
-  UI --> Ajax
 
-  Registry --> Run
-  Registry --> Analyze
-  Registry --> RecordHint
-  Registry --> SendTeacher
-
-  Ajax -->|"Run code"| Run
-  Ajax -->|"Analyze error"| Analyze
-  Ajax -->|"Record hint"| RecordHint
-  Ajax -->|"Send to teacher"| SendTeacher
-
+  UI -->|"Run"| Run
   Run --> Gate
-  Analyze --> Gate
-  RecordHint --> Gate
-  SendTeacher --> Gate
-
   Run -->|"Read testcase"| TblAicode
   Run -->|"Execute payload"| Executor
   Executor -->|"Result JSON"| Run
   Run -->|"Insert attempt"| TblAttempts
-  Run -->|"Execution result"| Ajax
-  Ajax -->|"Render output/error"| UI
+  Run -->|"Execution result"| UI
 
-  UI -.->|"Jika run gagal:<br/>AI analyze async (skip student exam mode)"| Ajax
+  Run -.->|"Jika gagal"| Analyze
+  UI -->|"Hint"| Analyze
+  Analyze --> Gate
   Analyze -->|"Rate limit check"| TblAttempts
   Analyze -->|"Cache lookup/store"| TblCache
-  Analyze -->|"Anonymize code"| Analyze
   Analyze --> PromptResolver
-  PromptResolver -->|"Prompt final"| AIMgr
+  PromptResolver --> AIMgr
   AIMgr -->|"generate_text"| AIProvider
-  AIProvider -->|"Model response"| AIMgr
-  AIMgr -->|"Normalized feedback"| Analyze
-  Analyze -->|"Feedback JSON"| Ajax
-  Ajax -->|"Hint panel update"| UI
+  AIProvider --> AIMgr
+  AIMgr --> Analyze
+  Analyze -->|"AI feedback"| UI
 
+  UI -->|"Hint terpakai"| RecordHint
+  RecordHint --> Gate
   RecordHint -->|"Update used_hints_json"| TblAttempts
+
+  UI -->|"Submit"| SendTeacher
+  SendTeacher --> Gate
   SendTeacher -->|"Insert teacher_review_requested"| TblAttempts
   SendTeacher -.->|"TODO notification"| Teacher
-
-  Privacy --> TblAttempts
-  Gradebook --> TblAicode
-  TblExtra --- TblAttempts
 
   classDef actor fill:#ffffff,stroke:#334155,color:#0f172a,stroke-width:1.2px;
   classDef front fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e,stroke-width:1.2px;
@@ -102,7 +81,7 @@ flowchart LR
   classDef ext fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:1.2px;
 
   class Student,Teacher,Admin actor;
-  class Page,UI,Ajax,Preview,History front;
-  class Registry,Gate,Settings,Run,Analyze,RecordHint,SendTeacher,PromptResolver,AIMgr,ViewedEvent,Privacy,Gradebook back;
-  class TblAicode,TblAttempts,TblCache,TblExtra data;
+  class Page,UI,Preview,History front;
+  class Gate,Settings,Run,Analyze,RecordHint,SendTeacher,PromptResolver,AIMgr back;
+  class TblAicode,TblAttempts,TblCache data;
   class Executor,AIProvider ext;

@@ -38,6 +38,8 @@ $string['mode'] = 'Mode';
 $string['mode_help'] = 'Choose how this activity behaves for students. Training mode enables AI feedback and hints. Exam mode only records student answers without showing AI feedback; only teachers can see detailed evaluation.';
 $string['mode_training'] = 'Training (latihan, AI aktif)';
 $string['mode_exam'] = 'Exam (ulangan, tanpa feedback AI untuk siswa)';
+$string['aiprompttemplate'] = 'AI prompt template override (teacher)';
+$string['aiprompttemplate_help'] = 'Optional prompt template for this activity only. Use [[CODE]], [[STDERR]], and [[TRACE]] placeholders. Leave empty to use the global plugin prompt template.';
 $string['testcases'] = 'Test cases (JSON)';
 $string['testcases_help'] = 'JSON array of test cases. Example: [{"input": "5", "expected": "120"}]';
 $string['startercode'] = 'Starter code template';
@@ -55,6 +57,8 @@ $string['allowtraining_desc'] = 'Allow anonymized student code to be used for im
 // Admin settings.
 $string['executorurl'] = 'Executor service URL';
 $string['executorurl_desc'] = 'URL of the code execution microservice (e.g., http://127.0.0.1:3001)';
+$string['aifeedbackprompttemplate'] = 'Default AI feedback prompt template';
+$string['aifeedbackprompttemplate_desc'] = 'Global prompt template used for AI feedback generation. Use [[CODE]], [[STDERR]], and [[TRACE]] placeholders. Teachers can override this per activity in activity settings.';
 $string['confidencethreshold'] = 'Confidence threshold';
 $string['confidencethreshold_desc'] = 'Minimum confidence score (0.0-1.0) to accept AI feedback';
 $string['cachettl'] = 'Cache TTL (seconds)';
