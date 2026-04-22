@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alur Kerja Plugin AiCode — Moodle UNNES</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color: #e6edf3;
+  overflow-x: auto;
+}
+
+/* ── HEADER ── */
+.page-header {
+  text-align: center;
+  padding: 32px 24px 18px;
+  background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+  border-bottom: 1px solid #21262d;
+}
+.page-header h1 {
+  font-size: 25px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #58a6ff 0%, #bc8cff 50%, #ff7b72 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 7px;
+}
+.page-header p { color: #8b949e; font-size: 13px; }
+
+.badge-row { display:flex; justify-content:center; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 11px; border-radius:20px; font-size:11px; font-weight:600; border:1px solid;
+}
+.badge.green  { background:rgba(35,134,54,.15);  border-color:#238636; color:#3fb950; }
+.badge.blue   { background:rgba(31,111,235,.15); border-color:#1f6feb; color:#58a6ff; }
+.badge.purple { background:rgba(137,87,229,.15); border-color:#8957e5; color:#bc8cff; }
+.badge.orange { background:rgba(217,119,6,.15);  border-color:#d97706; color:#fbbf24; }
+.badge.pink   { background:rgba(219,39,119,.15); border-color:#db2777; color:#f472b6; }
+.badge.teal   { background:rgba(14,116,144,.15); border-color:#0e7490; color:#22d3ee; }
+
+/* ── CANVAS ── */
+.canvas-outer { padding:28px; overflow-x:auto; }
+.canvas {
+  position:relative; width:1720px; height:865px;
+  margin:0 auto;
+}
+.canvas svg.conn-layer {
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:1;
+}
+
+/* ── SECTION BACKGROUNDS ── */
+.sec-bg {
+  position:absolute; border-radius:14px; border:1px dashed; z-index:0;
+}
+.sec-bg.lt  { border-color:#238636; background:rgba(35,134,54,.05); }
+.sec-bg.ej  { border-color:#1f6feb; background:rgba(31,111,235,.05); }
+.sec-bg.sh  { border-color:#d97706; background:rgba(217,119,6,.06);  border-style:solid; border-width:1px; }
+.sec-bg.ai  { border-color:#8957e5; background:rgba(137,87,229,.05); }
+.sec-bg.tc  { border-color:#1f6feb; background:rgba(31,111,235,.04); }
+.sec-bg.adm { border-color:#8957e5; background:rgba(137,87,229,.04); }
+.sec-bg.inf { border-color:#0e7490; background:rgba(14,116,144,.04); }
+
+/* ── SECTION LABELS ── */
+.sec-label {
+  position:absolute; font-size:10px; font-weight:700; letter-spacing:1.6px;
+  text-transform:uppercase; z-index:5; padding:3px 9px; border-radius:4px;
+}
+
+/* ── MODE TITLE BANNERS ── */
+.mode-banner {
+  position:absolute; z-index:6;
+  display:flex; align-items:center; gap:8px;
+  padding:6px 14px; border-radius:8px;
+  font-size:12px; font-weight:700;
+}
+.mode-banner.lt {
+  background:rgba(35,134,54,.18); border:1px solid #238636; color:#3fb950;
+}
+.mode-banner.ej {
+  background:rgba(31,111,235,.18); border:1px solid #1f6feb; color:#58a6ff;
+}
+.mode-banner .tag {
+  font-size:9px; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+  padding:2px 7px; border-radius:20px; opacity:.85;
+}
+.mode-banner.lt .tag { background:#0d2b0d; color:#3fb950; border:1px solid #238636; }
+.mode-banner.ej .tag { background:#081525; color:#58a6ff; border:1px solid #1f6feb; }
+
+/* ── ACTOR ── */
+.actor {
+  position:absolute; display:flex; flex-direction:column;
+  align-items:center; gap:6px; z-index:10; cursor:default;
+}
+.actor-bubble {
+  width:52px; height:52px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; border:2px solid;
+  box-shadow:0 0 18px -6px currentColor;
+  transition:transform .22s, box-shadow .22s;
+}
+.actor:hover .actor-bubble { transform:scale(1.1); box-shadow:0 0 26px -3px currentColor; }
+.actor-name { font-size:11px; font-weight:700; text-align:center; }
+.actor.student .actor-bubble { background:#071f07; border-color:#238636; color:#238636; }
+.actor.student2 .actor-bubble { background:#071119; border-color:#1f6feb; color:#1f6feb; }
+.actor.teacher  .actor-bubble { background:#071119; border-color:#1f6feb; color:#1f6feb; }
+.actor.admin    .actor-bubble { background:#130b22; border-color:#8957e5; color:#8957e5; }
+
+/* ── NODE ── */
+.node {
+  position:absolute; display:flex; align-items:center; gap:10px;
+  padding:0 14px 0 7px; height:52px; border-radius:10px;
+  background:#161b22; border:1px solid #30363d;
+  box-shadow:0 3px 10px rgba(0,0,0,.45);
+  z-index:10; cursor:default; white-space:nowrap;
+  transition:transform .2s, box-shadow .2s, border-color .2s;
+}
+.node:hover { transform:translateY(-3px); z-index:20; }
+.node-icon {
+  width:34px; height:34px; min-width:34px; border-radius:7px;
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.node-title { font-size:12px; font-weight:700; line-height:1.25; }
+.node-sub   { font-size:10px; color:#8b949e; margin-top:1px; line-height:1.2; }
+
+/* Node colour variants */
+.node.green  { border-color:#238636; }
+.node.green  .node-icon { background:#0d2b0d; color:#3fb950; }
+.node.green:hover { border-color:#3fb950; box-shadow:0 8px 22px rgba(35,134,54,.25); }
+
+.node.blue   { border-color:#1f6feb; }
+.node.blue   .node-icon { background:#081525; color:#58a6ff; }
+.node.blue:hover { border-color:#58a6ff; box-shadow:0 8px 22px rgba(31,111,235,.25); }
+
+.node.purple { border-color:#8957e5; }
+.node.purple .node-icon { background:#150b22; color:#bc8cff; }
+.node.purple:hover { border-color:#bc8cff; box-shadow:0 8px 22px rgba(137,87,229,.25); }
+
+.node.orange { border-color:#d97706; }
+.node.orange .node-icon { background:#1a0e02; color:#fbbf24; }
+.node.orange:hover { border-color:#fbbf24; box-shadow:0 8px 22px rgba(217,119,6,.25); }
+
+.node.pink   { border-color:#db2777; }
+.node.pink   .node-icon { background:#1a0511; color:#f472b6; }
+.node.pink:hover { border-color:#f472b6; box-shadow:0 8px 22px rgba(219,39,119,.25); }
+
+.node.teal   { border-color:#0e7490; }
+.node.teal   .node-icon { background:#041318; color:#22d3ee; }
+.node.teal:hover { border-color:#22d3ee; box-shadow:0 8px 22px rgba(14,116,144,.25); }
+
+.node.red    { border-color:#f85149; }
+.node.red    .node-icon { background:#1c0808; color:#f85149; }
+.node.red:hover { border-color:#ffa198; box-shadow:0 8px 22px rgba(248,81,73,.25); }
+
+/* External/dashed border */
+.node.ext { border-style:dashed; }
+
+/* Pulse for external services */
+@keyframes ext-pulse {
+  0%,100% { box-shadow:0 3px 10px rgba(0,0,0,.45); }
+  50%      { box-shadow:0 3px 10px rgba(0,0,0,.45), 0 0 16px 3px rgba(var(--glow),.35); }
+}
+.node.pink.ext   { --glow:219,39,119; animation:ext-pulse 3s ease-in-out infinite; }
+.node.orange.ext { --glow:217,119,6;  animation:ext-pulse 3s ease-in-out infinite 1.5s; }
+
+/* Step badge */
+.step {
+  position:absolute; width:17px; height:17px; border-radius:50%;
+  font-size:8.5px; font-weight:800;
+  display:flex; align-items:center; justify-content:center;
+  top:-7px; left:-7px; z-index:15; border:1.5px solid #0d1117;
+}
+
+/* Tooltip */
+.node[data-tip]:hover::after, .actor[data-tip]:hover::after {
+  content:attr(data-tip);
+  position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%);
+  background:#1c2128; color:#c9d1d9; font-size:11px; line-height:1.5;
+  padding:8px 12px; border-radius:8px; border:1px solid #30363d;
+  white-space:normal; max-width:210px; text-align:center;
+  z-index:100; pointer-events:none; opacity:0; transition:opacity .2s;
+  box-shadow:0 4px 14px rgba(0,0,0,.5);
+}
+.node[data-tip]:hover::after, .actor[data-tip]:hover::after { opacity:1; }
+
+/* Inline annotation labels on the canvas */
+.note {
+  position:absolute; background:#1c2128; border:1px solid #30363d;
+  border-radius:8px; font-size:10px; color:#8b949e;
+  padding:5px 10px; z-index:8; line-height:1.5; pointer-events:none;
+}
+.note b { display:block; color:#c9d1d9; font-size:10px; font-weight:700; margin-bottom:2px; }
+
+/* Flow label chips on arrows */
+.flow-chip {
+  position:absolute; background:#1c2128; border:1px solid #30363d;
+  border-radius:20px; font-size:9.5px; color:#8b949e;
+  padding:2px 9px; z-index:12; pointer-events:none; white-space:nowrap;
+}
+
+/* ── DIVIDER BETWEEN MODES ── */
+.mode-divider {
+  position:absolute; left:50px; width:1620px;
+  border-top:1px dashed #30363d;
+  z-index:3;
+}
+.mode-divider-label {
+  position:absolute; font-size:10px; font-weight:700;
+  color:#484f58; background:#0d1117;
+  padding:0 8px; letter-spacing:1px; text-transform:uppercase;
+  z-index:4; transform:translateY(-50%);
+}
+
+/* ── LEGEND ── */
+.legend {
+  position:absolute; right:14px; bottom:14px;
+  background:#161b22; border:1px solid #30363d;
+  border-radius:12px; padding:13px 16px; z-index:30;
+}
+.legend h3 { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.3px; color:#8b949e; margin-bottom:9px; }
+.legend-item { display:flex; align-items:center; gap:8px; font-size:11px; color:#c9d1d9; margin-bottom:5px; }
+.ll { width:24px; height:2px; border-radius:1px; flex-shrink:0; }
+.ll.dash { background:none!important; border-top:2px dashed; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <h1>✦ Alur Kerja Plugin AiCode ✦</h1>
+  <p>Cara kerja aktivitas pemrograman berbantuan AI — dua mode: <strong style="color:#3fb950">Latihan</strong> dan <strong style="color:#58a6ff">Ujian</strong></p>
+  <div class="badge-row">
+    <span class="badge green">📚 Mode Latihan — Bebas Berulang</span>
+    <span class="badge blue">📝 Mode Ujian — Sekali Kumpul</span>
+    <span class="badge orange">⚡ Code Executor</span>
+    <span class="badge pink">✨ Google Gemini AI</span>
+    <span class="badge teal">💾 Database & Gradebook</span>
+    <span class="badge purple">👩‍🏫 Laporan Guru</span>
+  </div>
+</div>
+
+<div class="canvas-outer">
+<div class="canvas" id="canvas">
+
+  <!-- SVG LAYER -->
+  <svg class="conn-layer" id="svg" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ag"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#3fb950"/></marker>
+      <marker id="ab"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#58a6ff"/></marker>
+      <marker id="ap"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#bc8cff"/></marker>
+      <marker id="ao"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#fbbf24"/></marker>
+      <marker id="ak"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#f472b6"/></marker>
+      <marker id="at"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#22d3ee"/></marker>
+      <marker id="ad"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#484f58"/></marker>
+      <marker id="ar"  markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#f85149"/></marker>
+    </defs>
+  </svg>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SECTION BACKGROUNDS
+  ══════════════════════════════════════════════════════════ -->
+  <!-- Mode Latihan lane -->
+  <div class="sec-bg lt" style="left:50px;top:83px;width:1620px;height:155px;"></div>
+  <!-- Shared services box (between lanes) -->
+  <div class="sec-bg sh" style="left:610px;top:255px;width:440px;height:82px;border-radius:10px;"></div>
+  <!-- Mode Ujian lane -->
+  <div class="sec-bg ej" style="left:50px;top:355px;width:1620px;height:168px;"></div>
+  <!-- AI Hint section -->
+  <div class="sec-bg ai" style="left:50px;top:547px;width:880px;height:82px;"></div>
+  <!-- Teacher section -->
+  <div class="sec-bg tc" style="left:50px;top:652px;width:1280px;height:82px;"></div>
+  <!-- Admin section -->
+  <div class="sec-bg adm" style="left:50px;top:756px;width:500px;height:90px;"></div>
+  <!-- Infra section -->
+  <div class="sec-bg inf" style="left:568px;top:756px;width:570px;height:90px;"></div>
+
+  <!-- ── SECTION LABELS ── -->
+  <div class="sec-label lt" style="left:68px;top:93px;color:#3fb950;background:rgba(35,134,54,.12);">📚 &nbsp;Mode Latihan</div>
+  <div class="sec-label" style="left:622px;top:263px;color:#fbbf24;background:rgba(217,119,6,.12);">⚡ &nbsp;Layanan Server (Digunakan Kedua Mode)</div>
+  <div class="sec-label ej" style="left:68px;top:365px;color:#58a6ff;background:rgba(31,111,235,.12);">📝 &nbsp;Mode Ujian</div>
+  <div class="sec-label" style="left:68px;top:557px;color:#bc8cff;background:rgba(137,87,229,.12);">💬 &nbsp;Bantuan AI (Tersedia di Kedua Mode)</div>
+  <div class="sec-label" style="left:68px;top:662px;color:#58a6ff;background:rgba(31,111,235,.12);">👩‍🏫 &nbsp;Alur Guru (Relevan untuk Mode Ujian)</div>
+  <div class="sec-label" style="left:68px;top:766px;color:#bc8cff;background:rgba(137,87,229,.12);">⚙️ &nbsp;Konfigurasi Admin</div>
+  <div class="sec-label" style="left:580px;top:766px;color:#22d3ee;background:rgba(14,116,144,.12);">💾 &nbsp;Penyimpanan Data</div>
+
+  <!-- ── MODE BANNERS ── -->
+  <div class="mode-banner lt" style="left:620px;top:88px;">
+    <span>📚 MODE LATIHAN</span>
+    <span class="tag">∞ Bisa Diulang</span>
+    <span class="tag">👤 Bisa Anonim</span>
+  </div>
+  <div class="mode-banner ej" style="left:620px;top:360px;">
+    <span>📝 MODE UJIAN</span>
+    <span class="tag">⚠️ 1× Pengiriman</span>
+    <span class="tag">🔒 Kode Terkunci Setelah Kirim</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ACTORS
+  ══════════════════════════════════════════════════════════ -->
+  <div class="actor student" id="as1" style="left:16px;top:104px;"
+       data-tip="Siswa yang mengerjakan soal dalam mode latihan (bebas, bisa diulang)">
+    <div class="actor-bubble">👨‍🎓</div>
+    <div class="actor-name" style="color:#3fb950;">Siswa</div>
+  </div>
+  <div class="actor student2" id="as2" style="left:16px;top:375px;"
+       data-tip="Siswa yang mengerjakan soal dalam mode ujian (satu kesempatan, nilai resmi)">
+    <div class="actor-bubble">👨‍🎓</div>
+    <div class="actor-name" style="color:#58a6ff;">Siswa</div>
+  </div>
+  <div class="actor teacher" id="at" style="left:16px;top:668px;"
+       data-tip="Guru memantau, menilai, dan memberikan koreksi feedback AI">
+    <div class="actor-bubble">👩‍🏫</div>
+    <div class="actor-name" style="color:#58a6ff;">Guru</div>
+  </div>
+  <div class="actor admin" id="aa" style="left:16px;top:776px;"
+       data-tip="Admin mengonfigurasi API Key, URL Executor, dan batas penggunaan AI">
+    <div class="actor-bubble">👨‍💼</div>
+    <div class="actor-name" style="color:#bc8cff;">Admin</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ROW 1 — MODE LATIHAN (y=103)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="node green" id="lt-open" style="left:106px;top:105px;width:165px;"
+       data-tip="Siswa membuka soal pemrograman dan melihat starter code yang disediakan">
+    <div class="step" style="background:#1a7f37;color:#fff;">1</div>
+    <div class="node-icon">📖</div>
+    <div><div class="node-title">Buka Soal</div><div class="node-sub">Baca deskripsi & starter code</div></div>
+  </div>
+
+  <div class="node green" id="lt-edit" style="left:285px;top:105px;width:165px;"
+       data-tip="Siswa menulis kode di editor. Juga bisa preview HTML/CSS secara langsung.">
+    <div class="step" style="background:#1a7f37;color:#fff;">2</div>
+    <div class="node-icon">✏️</div>
+    <div><div class="node-title">Editor Kode</div><div class="node-sub">Tulis & edit solusi</div></div>
+  </div>
+
+  <div class="node green" id="lt-run" style="left:464px;top:105px;width:170px;"
+       data-tip="Kode dikirim ke server untuk dicek dan dijalankan. Dapat diulang berkali-kali.">
+    <div class="step" style="background:#1a7f37;color:#fff;">3</div>
+    <div class="node-icon">▶️</div>
+    <div><div class="node-title">Jalankan Kode</div><div class="node-sub">Ulang sesering apapun</div></div>
+  </div>
+
+  <!-- gap: 634-1050 (shared services in middle) -->
+
+  <div class="node green" id="lt-result" style="left:1058px;top:105px;width:192px;"
+       data-tip="Hasil eksekusi ditampilkan: output program, test case lulus/gagal, dan skor otomatis">
+    <div class="step" style="background:#1a7f37;color:#fff;">4</div>
+    <div class="node-icon">📊</div>
+    <div><div class="node-title">Lihat Output</div><div class="node-sub">Test result & skor</div></div>
+  </div>
+
+  <div class="node green" id="lt-retry" style="left:1270px;top:105px;width:190px;"
+       data-tip="Siswa bebas mengubah kode dan mencoba lagi. Riwayat 20 percobaan tersimpan.">
+    <div class="node-icon">🔁</div>
+    <div><div class="node-title">Coba Lagi / Ubah</div><div class="node-sub">Tanpa batas, riwayat tersimpan</div></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SHARED SERVICES (between lanes, y=262)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="node orange" id="n-sec" style="left:618px;top:262px;width:182px;"
+       data-tip="Kode diperiksa otomatis sebelum dieksekusi — memblokir perintah berbahaya seperti 'import os', 'rm -rf', dll.">
+    <div class="node-icon">🛡️</div>
+    <div><div class="node-title">Cek Keamanan</div><div class="node-sub">Filter perintah berbahaya</div></div>
+  </div>
+
+  <div class="node orange ext" id="n-exec" style="left:822px;top:262px;width:210px;"
+       data-tip="Layanan terpisah yang menjalankan kode di sandbox aman beserta test case otomatis (default: localhost:3001)">
+    <div class="node-icon">⚡</div>
+    <div><div class="node-title">Code Executor</div><div class="node-sub">Sandbox aman + test cases</div></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ROW 2 — MODE UJIAN (y=373)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="node blue" id="ej-open" style="left:106px;top:375px;width:165px;"
+       data-tip="Siswa membuka soal ujian. Sama seperti latihan, tapi semua percobaan tercatat dengan identitas.">
+    <div class="step" style="background:#1158c7;color:#fff;">1</div>
+    <div class="node-icon">📖</div>
+    <div><div class="node-title">Buka Soal</div><div class="node-sub">Identitas tercatat</div></div>
+  </div>
+
+  <div class="node blue" id="ej-edit" style="left:285px;top:375px;width:165px;"
+       data-tip="Siswa menulis kode. Semua percobaan tersimpan lengkap di database untuk dilihat guru.">
+    <div class="step" style="background:#1158c7;color:#fff;">2</div>
+    <div class="node-icon">✏️</div>
+    <div><div class="node-title">Editor Kode</div><div class="node-sub">Semua percobaan disimpan</div></div>
+  </div>
+
+  <div class="node blue" id="ej-run" style="left:464px;top:375px;width:170px;"
+       data-tip="Bisa dicoba berkali-kali sebelum mengumpulkan. Tapi pengumpulan ke guru hanya 1 kali.">
+    <div class="step" style="background:#1158c7;color:#fff;">3</div>
+    <div class="node-icon">▶️</div>
+    <div><div class="node-title">Jalankan Kode</div><div class="node-sub">Coba sebelum mengumpulkan</div></div>
+  </div>
+
+  <!-- gap: same as mode latihan -->
+
+  <div class="node blue" id="ej-result" style="left:1058px;top:375px;width:192px;"
+       data-tip="Hasil ditampilkan lengkap dengan skor. Siswa bisa terus mencoba atau langsung mengumpulkan.">
+    <div class="step" style="background:#1158c7;color:#fff;">4</div>
+    <div class="node-icon">📊</div>
+    <div><div class="node-title">Lihat Hasil + Skor</div><div class="node-sub">Keputusan: revisi atau kumpul?</div></div>
+  </div>
+
+  <div class="node blue" id="ej-submit" style="left:1270px;top:375px;width:192px;"
+       data-tip="Siswa mengumpulkan kode final ke guru. Di mode ujian ini HANYA BISA DILAKUKAN SEKALI.">
+    <div class="step" style="background:#1158c7;color:#fff;">5</div>
+    <div class="node-icon">📤</div>
+    <div><div class="node-title">Kirim ke Guru</div><div class="node-sub">⚠️ Hanya 1× kesempatan</div></div>
+  </div>
+
+  <div class="node red" id="ej-locked" style="left:1481px;top:375px;width:190px;"
+       data-tip="Setelah mengumpulkan, kode terkunci. Siswa hanya bisa melihat kode yang sudah dikirim, tidak bisa diedit lagi.">
+    <div class="node-icon">🔒</div>
+    <div><div class="node-title">Kode Terkunci</div><div class="node-sub">Menunggu penilaian guru</div></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       AI HINT — SHARED (y=555)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="node purple" id="n-hint" style="left:106px;top:557px;width:194px;"
+       data-tip="Kapan saja saat mengerjakan, siswa bisa minta bantuan AI jika merasa kesulitan atau kodenya error">
+    <div class="node-icon">💡</div>
+    <div><div class="node-title">Minta Bantuan AI</div><div class="node-sub">Klik tombol "Bantuan"</div></div>
+  </div>
+
+  <div class="node pink ext" id="n-gem" style="left:318px;top:557px;width:210px;"
+       data-tip="Google Gemini AI menganalisis kode + pesan error, lalu menyusun feedback terstruktur dalam Bahasa Indonesia">
+    <div class="node-icon">✨</div>
+    <div><div class="node-title">Google Gemini AI</div><div class="node-sub">Analisis kode & error</div></div>
+  </div>
+
+  <div class="node purple" id="n-fb" style="left:548px;top:557px;width:220px;"
+       data-tip="Feedback ditampilkan: diagnosis masalah, lokasi error, saran perbaikan langkah demi langkah, dan materi belajar terkait">
+    <div class="node-icon">💬</div>
+    <div><div class="node-title">Tampilkan Feedback</div><div class="node-sub">Diagnosis + saran + materi</div></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       TEACHER ROW (y=668)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="node blue" id="tc-rep" style="left:106px;top:668px;width:188px;"
+       data-tip="Guru membuka laporan kelas: status semua siswa, grafik distribusi nilai, tren aktivitas 14 hari terakhir">
+    <div class="step" style="background:#1158c7;color:#fff;">6</div>
+    <div class="node-icon">📋</div>
+    <div><div class="node-title">Dashboard Laporan</div><div class="node-sub">Analitik kelas lengkap</div></div>
+  </div>
+
+  <div class="node blue" id="tc-rev" style="left:344px;top:668px;width:196px;"
+       data-tip="Guru melihat timeline percobaan tiap siswa: kode yang ditulis, output, feedback AI yang diterima, jumlah hint">
+    <div class="step" style="background:#1158c7;color:#fff;">7</div>
+    <div class="node-icon">🔍</div>
+    <div><div class="node-title">Review Kode Siswa</div><div class="node-sub">Timeline & semua percobaan</div></div>
+  </div>
+
+  <div class="node blue" id="tc-grd" style="left:590px;top:668px;width:165px;"
+       data-tip="Guru memberikan nilai 0–100 yang langsung masuk ke Gradebook Moodle dan bisa diekspor">
+    <div class="step" style="background:#1158c7;color:#fff;">8</div>
+    <div class="node-icon">⭐</div>
+    <div><div class="node-title">Beri Nilai</div><div class="node-sub">Input ke Gradebook</div></div>
+  </div>
+
+  <div class="node purple" id="tc-ovr" style="left:815px;top:668px;width:208px;"
+       data-tip="Guru mengoreksi feedback AI yang kurang tepat dan menandainya sebagai contoh yang benar untuk soal ini">
+    <div class="step" style="background:#6e40c9;color:#fff;">9</div>
+    <div class="node-icon">📝</div>
+    <div><div class="node-title">Koreksi Feedback AI</div><div class="node-sub">Override & tandai contoh</div></div>
+  </div>
+
+  <div class="node pink" id="tc-ex" style="left:1081px;top:668px;width:208px;"
+       data-tip="Koreksi guru dimasukkan ke prompt Gemini sebagai contoh nyata (few-shot learning) — AI makin cerdas untuk soal ini">
+    <div class="step" style="background:#be185d;color:#fff;">10</div>
+    <div class="node-icon">🔄</div>
+    <div><div class="node-title">Dijadikan Contoh AI</div><div class="node-sub">AI makin pintar untuk soal ini</div></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ADMIN / INFRA ROW (y=775)
+  ══════════════════════════════════════════════════════════ -->
+  <div class="node purple" id="ad-cfg" style="left:106px;top:780px;width:185px;"
+       data-tip="Admin mengatur seluruh konfigurasi plugin dari halaman pengaturan Moodle">
+    <div class="node-icon">⚙️</div>
+    <div><div class="node-title">Konfigurasi Sistem</div><div class="node-sub">Settings plugin Moodle</div></div>
+  </div>
+
+  <div class="node pink" id="ad-key" style="left:348px;top:762px;width:188px;"
+       data-tip="Admin mengisi kunci API Google Gemini dan memilih model (default: gemini-2.0-flash)">
+    <div class="node-icon">🔑</div>
+    <div><div class="node-title">Gemini API Key</div><div class="node-sub">Model & kunci akses AI</div></div>
+  </div>
+
+  <div class="node orange" id="ad-url" style="left:348px;top:818px;width:188px;"
+       data-tip="Admin mengatur URL layanan Code Executor dan batas maksimal panggilan AI per siswa per hari">
+    <div class="node-icon">🌐</div>
+    <div><div class="node-title">URL & Batas Harian</div><div class="node-sub">Executor URL + limit AI/hari</div></div>
+  </div>
+
+  <div class="node teal ext" id="ad-db" style="left:588px;top:780px;width:192px;"
+       data-tip="Semua data tersimpan: kode siswa, nilai, feedback AI, cache AI, riwayat percobaan, koreksi guru">
+    <div class="node-icon">💾</div>
+    <div><div class="node-title">Database Moodle</div><div class="node-sub">Simpan semua data aktivitas</div></div>
+  </div>
+
+  <div class="node teal" id="ad-gb" style="left:836px;top:780px;width:192px;"
+       data-tip="Nilai yang diberikan guru otomatis masuk ke Gradebook Moodle dan bisa direkap oleh lembaga">
+    <div class="node-icon">📚</div>
+    <div><div class="node-title">Gradebook Moodle</div><div class="node-sub">Rekap & ekspor nilai</div></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       ANNOTATIONS
+  ══════════════════════════════════════════════════════════ -->
+  <!-- Loop annotation for Mode Latihan -->
+  <div class="note" style="left:1481px;top:105px;width:192px;">
+    <b>∞ Tanpa Batas</b>
+    Siswa bisa revisi dan ulangi sesering yang diinginkan
+  </div>
+
+  <!-- One-time annotation for Mode Ujian -->
+  <div class="note" style="left:1481px;top:300px;width:192px;border-color:#f85149;">
+    <b style="color:#f85149;">⚠️ Hanya 1 Kali!</b>
+    Setelah tombol "Kirim" ditekan, kode <strong>tidak bisa</strong> diubah lagi
+  </div>
+
+  <!-- AI cache note -->
+  <div class="note" style="left:790px;top:557px;width:195px;">
+    <b>💡 Cache & Batas Harian</b>
+    Jawaban AI disimpan untuk efisiensi. Dibatasi X permintaan/hari
+  </div>
+
+  <!-- ── LEGEND ── -->
+  <div class="legend">
+    <h3>Keterangan</h3>
+    <div class="legend-item"><div class="ll" style="background:#3fb950;"></div> Alur Mode Latihan</div>
+    <div class="legend-item"><div class="ll" style="background:#58a6ff;"></div> Alur Mode Ujian</div>
+    <div class="legend-item"><div class="ll" style="background:#fbbf24;"></div> Layanan server bersama</div>
+    <div class="legend-item"><div class="ll" style="background:#bc8cff;"></div> Alur AI & Admin</div>
+    <div class="legend-item"><div class="ll" style="background:#22d3ee;"></div> Penyimpanan data</div>
+    <div class="legend-item"><div class="ll dash" style="border-color:#484f58;"></div> Alur konfigurasi / data</div>
+  </div>
+
+</div><!-- /canvas -->
+</div><!-- /canvas-outer -->
+
+<!-- ══════════════════════════════════════════════════════════ JS CONNECTIONS -->
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+
+  function lx(el){ return el.offsetLeft; }
+  function rx(el){ return el.offsetLeft + el.offsetWidth; }
+  function cx(el){ return el.offsetLeft + el.offsetWidth/2; }
+  function ty(el){ return el.offsetTop; }
+  function by(el){ return el.offsetTop + el.offsetHeight; }
+  function cy(el){ return el.offsetTop + el.offsetHeight/2; }
+
+  function p(d, col, dash, w, mk, op){
+    w=w||1.8; op=op||.88;
+    const da = dash?`stroke-dasharray="${dash}"`:'';
+    const ma = mk?`marker-end="url(#${mk})"`:'';
+    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" ${da} ${ma} stroke-opacity="${op}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+
+  // horizontal bezier left→right
+  function h(x1,y1,x2,y2,col,dash,w,mk,op){
+    const mx=(x1+x2)/2;
+    return p(`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`,col,dash,w,mk,op);
+  }
+
+  window.addEventListener('load',()=>{
+    const G='#3fb950', B='#58a6ff', P='#bc8cff',
+          O='#fbbf24', K='#f472b6', T='#22d3ee',
+          D='#484f58', R='#f85149';
+
+    let html = '';
+
+    // ── Actor → first node
+    html += h(rx($('as1'))+2, cy($('as1')), lx($('lt-open'))-2, cy($('lt-open')), G,'',1.8,'ag');
+    html += h(rx($('as2'))+2, cy($('as2')), lx($('ej-open'))-2, cy($('ej-open')), B,'',1.8,'ab');
+
+    // ── MODE LATIHAN main flow (open→edit→run)
+    html += h(rx($('lt-open')), cy($('lt-open')), lx($('lt-edit')), cy($('lt-edit')), G,'',1.8,'ag');
+    html += h(rx($('lt-edit')), cy($('lt-edit')), lx($('lt-run')),  cy($('lt-run')),  G,'',1.8,'ag');
+
+    // ── MODE UJIAN main flow (open→edit→run)
+    html += h(rx($('ej-open')), cy($('ej-open')), lx($('ej-edit')), cy($('ej-edit')), B,'',1.8,'ab');
+    html += h(rx($('ej-edit')), cy($('ej-edit')), lx($('ej-run')),  cy($('ej-run')),  B,'',1.8,'ab');
+
+    // ── BOTH RUN nodes → SECURITY (diagonal to center)
+    {
+      const runLt = $('lt-run'), runEj = $('ej-run'), sec = $('n-sec');
+      // Mode Latihan run → security (down-right)
+      html += p(`M${rx(runLt)},${cy(runLt)} C${(rx(runLt)+lx(sec))/2},${cy(runLt)} ${(rx(runLt)+lx(sec))/2},${cy(sec)} ${lx(sec)},${cy(sec)}`,
+        O,'',1.8,'ao');
+      // Mode Ujian run → security (up-right)
+      html += p(`M${rx(runEj)},${cy(runEj)} C${(rx(runEj)+lx(sec))/2},${cy(runEj)} ${(rx(runEj)+lx(sec))/2},${cy(sec)} ${lx(sec)},${cy(sec)}`,
+        O,'',1.8,'ao');
+    }
+
+    // ── SECURITY → EXECUTOR
+    html += h(rx($('n-sec')), cy($('n-sec')), lx($('n-exec')), cy($('n-exec')), O,'',1.8,'ao');
+
+    // ── EXECUTOR → BOTH RESULT nodes (diagonal back)
+    {
+      const exec = $('n-exec'), resLt = $('lt-result'), resEj = $('ej-result');
+      // executor → mode latihan result (up-right)
+      html += p(`M${rx(exec)},${cy(exec)} C${(rx(exec)+lx(resLt))/2},${cy(exec)} ${(rx(exec)+lx(resLt))/2},${cy(resLt)} ${lx(resLt)},${cy(resLt)}`,
+        G,'',1.8,'ag');
+      // executor → mode ujian result (down-right)
+      html += p(`M${rx(exec)},${cy(exec)} C${(rx(exec)+lx(resEj))/2},${cy(exec)} ${(rx(exec)+lx(resEj))/2},${cy(resEj)} ${lx(resEj)},${cy(resEj)}`,
+        B,'',1.8,'ab');
+    }
+
+    // ── MODE LATIHAN: result → retry (loop note)
+    html += h(rx($('lt-result')), cy($('lt-result')), lx($('lt-retry')), cy($('lt-retry')), G,'',1.8,'ag');
+
+    // ── retry loop back to editor (big curve, dashed)
+    {
+      const retry = $('lt-retry'), edit = $('lt-edit');
+      html += p(`M${cx(retry)},${ty(retry)} C${cx(retry)},${ty(retry)-46} ${cx(edit)},${ty(edit)-46} ${cx(edit)},${ty(edit)}`,
+        G,'6,3',1.4,'ag',0.55);
+    }
+
+    // ── MODE UJIAN: result → submit → locked
+    html += h(rx($('ej-result')), cy($('ej-result')), lx($('ej-submit')), cy($('ej-submit')), B,'',1.8,'ab');
+    html += h(rx($('ej-submit')), cy($('ej-submit')), lx($('ej-locked')), cy($('ej-locked')), R,'',1.8,'ar');
+
+    // ── Both editors → AI Hint (dashed, both modes can use it)
+    {
+      const lt = $('lt-edit'), ej = $('ej-edit'), hint = $('n-hint');
+      html += p(`M${cx(lt)},${by(lt)} C${cx(lt)},${by(lt)+60} ${cx(hint)},${ty(hint)-30} ${cx(hint)},${ty(hint)}`,
+        P,'5,3',1.4,'ap',0.65);
+      html += p(`M${cx(ej)},${by(ej)} C${cx(ej)},${by(ej)+20} ${cx(hint)+20},${ty(hint)-30} ${cx(hint)+20},${ty(hint)}`,
+        P,'5,3',1.4,'ap',0.55);
+    }
+
+    // ── AI Hint flow
+    html += h(rx($('n-hint')), cy($('n-hint')), lx($('n-gem')), cy($('n-gem')), P,'',1.8,'ap');
+    html += h(rx($('n-gem')),  cy($('n-gem')),  lx($('n-fb')),  cy($('n-fb')),  K,'',1.8,'ak');
+
+    // ── Teacher actor → report
+    html += h(rx($('at'))+2, cy($('at')), lx($('tc-rep'))-2, cy($('tc-rep')), B,'',1.8,'ab');
+
+    // ── Teacher flow
+    html += h(rx($('tc-rep')), cy($('tc-rep')), lx($('tc-rev')), cy($('tc-rev')), B,'',1.8,'ab');
+    html += h(rx($('tc-rev')), cy($('tc-rev')), lx($('tc-grd')), cy($('tc-grd')), B,'',1.8,'ab');
+    html += h(rx($('tc-grd')), cy($('tc-grd')), lx($('tc-ovr')), cy($('tc-ovr')), B,'',1.8,'ab');
+    html += h(rx($('tc-ovr')), cy($('tc-ovr')), lx($('tc-ex')),  cy($('tc-ex')),  P,'',1.8,'ap');
+
+    // ── Teacher example loops back to Gemini (dashed curve going up)
+    {
+      const ex = $('tc-ex'), gem = $('n-gem');
+      html += p(`M${cx(ex)},${ty(ex)} C${cx(ex)},${ty(ex)-80} ${cx(gem)},${by(gem)+80} ${cx(gem)},${by(gem)}`,
+        K,'7,4',1.4,'ak',0.55);
+    }
+
+    // ── Submitted code → DB (dashed from Mode Ujian submit)
+    {
+      const sub = $('ej-submit'), db = $('ad-db');
+      html += p(`M${cx(sub)},${by(sub)} C${cx(sub)},${by(sub)+80} ${cx(db)},${ty(db)-80} ${cx(db)},${ty(db)}`,
+        T,'5,3',1.3,'at',0.55);
+    }
+
+    // ── Run in mode latihan → DB (anonim, faint)
+    {
+      const run = $('lt-run'), db = $('ad-db');
+      html += p(`M${cx(run)},${by(run)} C${cx(run)},${by(run)+120} ${cx(db)-30},${ty(db)-80} ${cx(db)-30},${ty(db)}`,
+        T,'3,3',1.1,'at',0.3);
+    }
+
+    // ── Grade → Gradebook
+    {
+      const grd = $('tc-grd'), gb = $('ad-gb');
+      html += p(`M${cx(grd)},${by(grd)} C${cx(grd)},${by(grd)+40} ${cx(gb)},${ty(gb)-40} ${cx(gb)},${ty(gb)}`,
+        T,'5,3',1.3,'at',0.6);
+    }
+
+    // ── Admin actor → config
+    html += h(rx($('aa'))+2, cy($('aa')), lx($('ad-cfg'))-2, cy($('ad-cfg')), P,'',1.8,'ap');
+
+    // ── Config → API Key (fan up)
+    {
+      const cfg = $('ad-cfg'), key = $('ad-key');
+      html += p(`M${rx(cfg)},${cy(cfg)} C${(rx(cfg)+lx(key))/2},${cy(cfg)} ${(rx(cfg)+lx(key))/2},${cy(key)} ${lx(key)},${cy(key)}`,
+        K,'4,2',1.4,'ak',0.75);
+    }
+    // ── Config → URL (fan down)
+    {
+      const cfg = $('ad-cfg'), url = $('ad-url');
+      html += p(`M${rx(cfg)},${cy(cfg)} C${(rx(cfg)+lx(url))/2},${cy(cfg)} ${(rx(cfg)+lx(url))/2},${cy(url)} ${lx(url)},${cy(url)}`,
+        O,'4,2',1.4,'ao',0.75);
+    }
+
+    // ── API Key → Gemini (dashed config, going up)
+    {
+      const key = $('ad-key'), gem = $('n-gem');
+      html += p(`M${cx(key)},${ty(key)} C${cx(key)},${ty(key)-140} ${cx(gem)},${by(gem)+80} ${cx(gem)},${by(gem)}`,
+        K,'6,3',1.2,'ak',0.4);
+    }
+
+    // ── URL → Executor (dashed config, going up through canvas)
+    {
+      const url = $('ad-url'), exec = $('n-exec');
+      html += p(`M${cx(url)},${ty(url)} C${cx(url)},${ty(url)-320} ${cx(exec)},${by(exec)+160} ${cx(exec)},${by(exec)}`,
+        O,'6,3',1.2,'ao',0.35);
+    }
+
+    $('svg').innerHTML += html;
+  });
+})();
+</script>
+</body>
+</html>

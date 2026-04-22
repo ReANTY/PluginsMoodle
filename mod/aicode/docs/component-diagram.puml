@@ -1,0 +1,170 @@
+@startuml AICode Plugin - Diagram Komponen
+!theme plain
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam backgroundColor #FFFFFF
+
+skinparam component {
+    BackgroundColor #DDEEFF
+    BorderColor #336699
+    FontColor #003366
+}
+
+skinparam database {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+    FontColor #1B5E20
+}
+
+skinparam cloud {
+    BackgroundColor #FFF3E0
+    BorderColor #E65100
+    FontColor #BF360C
+}
+
+skinparam package {
+    BackgroundColor #F9F9F9
+    BorderColor #888888
+    FontColor #333333
+}
+
+title <b>AICode - Diagram Komponen</b>
+
+' ─── PENGGUNA ───────────────────────────────────────────────────
+actor "Siswa"   as S
+actor "Guru"    as T
+actor "Admin"   as A
+
+' ─── TAMPILAN BROWSER ────────────────────────────────────────────
+package "Tampilan di Browser" as BROWSER {
+    component [Editor Kode\n<i>tempat siswa menulis kode</i>] as JS
+}
+
+' ─── HALAMAN WEB ─────────────────────────────────────────────────
+package "Halaman Web" as PAGES {
+    component [Halaman Soal\n<i>view.php</i>] as VIEW
+    component [Daftar Soal\n<i>index.php</i>] as INDEX
+    component [Laporan Guru\n<i>report.php</i>] as REPORT
+    component [Form Buat Soal\n<i>mod_form.php</i>] as MODFORM
+    component [Pengaturan\n<i>settings.php</i>] as SETTINGS
+}
+
+' ─── PEMBANGUN TAMPILAN ───────────────────────────────────────────
+package "Pembangun Tampilan" as PRESENTATION {
+    component [Pembuat Antarmuka\n<i>renderer.php</i>] as RENDERER
+}
+
+' ─── LAYANAN KE BROWSER ──────────────────────────────────────────
+package "Layanan ke Browser" as WS {
+    component [Jalankan Kode] as WS_RUN
+    component [Minta Analisis AI] as WS_ANALYZE
+    component [Catat Penggunaan Petunjuk] as WS_HINT
+    component [Kirim ke Guru] as WS_SEND
+    component [Ambil Riwayat] as WS_HIST
+}
+
+' ─── PROSES INTERNAL ─────────────────────────────────────────────
+package "Proses Internal" as LOCAL {
+    component [Pemeriksa Keamanan\n<i>cek kode berbahaya</i>] as SEC
+    component [Pembuat Prompt AI\n<i>siapkan pertanyaan ke AI</i>] as PROMPT
+}
+
+' ─── PENCATAT AKTIVITAS ──────────────────────────────────────────
+package "Pencatat Aktivitas" as EVENTS {
+    component [Catat: Soal Dibuka] as EV_VIEW
+    component [Catat: Daftar Dilihat] as EV_LIST
+}
+
+' ─── PERLINDUNGAN DATA ───────────────────────────────────────────
+package "Perlindungan Data Pengguna" as PRIVACY {
+    component [Kelola Data Pribadi\n<i>ekspor dan hapus data</i>] as PROV
+}
+
+' ─── PENYIMPANAN DATA ────────────────────────────────────────────
+package "Penyimpanan Data" as DB {
+    database "Data Soal" as DB_AICODE
+    database "Jawaban Siswa" as DB_ATT
+    database "Cache Jawaban AI" as DB_CACHE
+    database "Koreksi Guru" as DB_OVER
+}
+
+' ─── SISTEM MOODLE ───────────────────────────────────────────────
+package "Sistem Moodle" as MOODLE {
+    component [Pengirim Permintaan\n<i>browser ke server</i>] as CORE_AJAX
+    component [Buku Nilai] as GRADEBOOK
+    component [Fungsi Utama Plugin\n<i>lib.php</i>] as LIB
+    component [Hak Akses] as CAPS
+}
+
+' ─── SISTEM LUAR ─────────────────────────────────────────────────
+cloud "Mesin Eksekusi Kode\n<i>menjalankan kode siswa</i>" as EXEC
+cloud "Layanan AI\n<i>memberi analisis dan petunjuk</i>" as AI_SVC
+
+' ───────────────────────────────────────────────────────────────
+'  ALUR HUBUNGAN
+' ───────────────────────────────────────────────────────────────
+
+' Pengguna membuka halaman
+S --> VIEW    : buka soal
+S --> INDEX   : lihat daftar soal
+T --> REPORT  : lihat laporan siswa
+T --> MODFORM : buat / edit soal
+A --> SETTINGS : atur konfigurasi
+
+' Halaman membangun tampilan
+VIEW    --> RENDERER  : bangun tampilan
+VIEW    --> EV_VIEW   : catat aktivitas
+INDEX   --> EV_LIST   : catat aktivitas
+VIEW    --> LIB       : ambil data soal
+MODFORM --> LIB       : simpan soal baru
+REPORT  --> LIB       : simpan nilai siswa
+REPORT  --> DB_OVER   : baca / tulis koreksi
+REPORT  --> DB_ATT    : lihat jawaban siswa
+
+' Tampilan memuat editor di browser
+RENDERER --> JS : muat editor kode
+
+' Browser mengirim permintaan ke server
+JS --> CORE_AJAX      : kirim permintaan
+CORE_AJAX --> WS_RUN     : jalankan kode
+CORE_AJAX --> WS_ANALYZE : minta petunjuk AI
+CORE_AJAX --> WS_HINT    : catat petunjuk dipakai
+CORE_AJAX --> WS_SEND    : kirim ke guru
+CORE_AJAX --> WS_HIST    : ambil riwayat
+
+' Alur eksekusi kode
+WS_RUN --> SEC    : periksa keamanan
+SEC    --> EXEC   : kirim jika aman
+WS_RUN --> DB_ATT : simpan hasil
+
+' Alur permintaan AI
+WS_ANALYZE --> PROMPT   : siapkan pertanyaan
+PROMPT     --> AI_SVC   : tanya ke AI
+WS_ANALYZE --> DB_CACHE : simpan / baca cache
+WS_ANALYZE --> DB_ATT   : simpan jawaban AI
+
+' Pencatatan lainnya
+WS_HINT --> DB_ATT : catat petunjuk dipakai
+WS_SEND --> DB_ATT : tandai dikirim ke guru
+WS_HIST --> DB_ATT : baca riwayat jawaban
+
+' Nilai dan data soal
+LIB --> GRADEBOOK : kirim nilai
+LIB --> DB_AICODE : kelola data soal
+
+' Perlindungan data
+PROV --> DB_ATT : ekspor / hapus data siswa
+PROV --> AI_SVC : informasi data yang dikirim ke AI
+
+' Hak akses
+CAPS ..> WS_RUN     : izin: kirim kode
+CAPS ..> WS_ANALYZE : izin: kirim kode
+CAPS ..> WS_HIST    : izin: lihat soal
+CAPS ..> REPORT     : izin: lihat / koreksi laporan
+
+' Koreksi guru dipakai untuk tingkatkan AI
+DB_OVER --> PROMPT : masukkan contoh koreksi\nke pertanyaan AI
+
+@enduml

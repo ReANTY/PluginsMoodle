@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Export ke Figma — AiCode Plugin</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117; color: #e6edf3;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh; padding: 40px 24px 60px;
+  display: flex; flex-direction: column; align-items: center; gap: 28px;
+}
+h1 {
+  font-size: 26px; font-weight: 800;
+  background: linear-gradient(135deg, #58a6ff, #bc8cff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.subtitle { color: #8b949e; font-size: 13px; text-align: center; max-width: 560px; line-height: 1.6; }
+
+/* info box */
+.info { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px 22px;
+        max-width: 640px; width: 100%; }
+.info h3 { font-size: 13px; font-weight: 700; color: #c9d1d9; margin-bottom: 10px; }
+.info ol { padding-left: 18px; color: #8b949e; font-size: 12.5px; line-height: 1.9; }
+.info ol li b { color: #e6edf3; }
+.info code { background: #21262d; border-radius: 4px; padding: 1px 6px; font-family: monospace;
+              font-size: 11px; color: #f472b6; }
+
+/* tags */
+.tags { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 640px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px;
+       font-size: 11px; font-weight: 600; border: 1px solid; }
+.tag.green  { background:rgba(35,134,54,.15);  border-color:#238636; color:#3fb950; }
+.tag.blue   { background:rgba(31,111,235,.15); border-color:#1f6feb; color:#58a6ff; }
+.tag.purple { background:rgba(137,87,229,.15); border-color:#8957e5; color:#bc8cff; }
+.tag.orange { background:rgba(217,119,6,.15);  border-color:#d97706; color:#fbbf24; }
+.tag.pink   { background:rgba(219,39,119,.15); border-color:#db2777; color:#f472b6; }
+.tag.teal   { background:rgba(14,116,144,.15); border-color:#0e7490; color:#22d3ee; }
+
+/* buttons */
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px;
+  border-radius: 10px; border: none; font-family: inherit; font-size: 14px;
+  font-weight: 700; cursor: pointer; transition: transform .2s, box-shadow .2s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn.dl { background: linear-gradient(135deg, #238636, #1f6feb); color: #fff;
+           box-shadow: 0 4px 18px rgba(35,134,54,.35); font-size: 15px; padding: 14px 36px; }
+.btn.pr { background: #161b22; color: #8b949e; border: 1px solid #30363d; }
+.btn.dl:hover { box-shadow: 0 8px 28px rgba(35,134,54,.5); }
+
+/* progress */
+#progress { display: none; color: #3fb950; font-size: 13px; font-weight: 700; animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* preview */
+.prev-wrap { border: 1px solid #30363d; border-radius: 14px; overflow: auto;
+             max-width: 100%; background: #161b22; padding: 8px; }
+#preview { transform-origin: top left; }
+
+/* stat grid */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 480px; width: 100%; }
+.stat { background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+        padding: 12px; text-align: center; }
+.stat-num { font-size: 22px; font-weight: 800; color: #58a6ff; }
+.stat-lbl { font-size: 10.5px; color: #8b949e; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<h1>📐 Export Diagram AiCode → Figma</h1>
+<p class="subtitle">Generator otomatis SVG berstruktur untuk diimport ke Figma. Setiap node, panah, dan teks menjadi <strong style="color:#e6edf3">layer yang bisa diedit</strong> secara individual.</p>
+
+<div class="tags">
+  <span class="tag green">26 Node</span>
+  <span class="tag blue">4 Aktor</span>
+  <span class="tag purple">25+ Koneksi</span>
+  <span class="tag orange">7 Section</span>
+  <span class="tag pink">Named Layers</span>
+  <span class="tag teal">1720 × 900 px</span>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="stat-num">26</div><div class="stat-lbl">Node / Komponen</div></div>
+  <div class="stat"><div class="stat-num">25+</div><div class="stat-lbl">Koneksi Bezier</div></div>
+  <div class="stat"><div class="stat-num">100%</div><div class="stat-lbl">Editable di Figma</div></div>
+</div>
+
+<div class="info">
+  <h3>📌 Cara Import ke Figma — 3 Langkah</h3>
+  <ol>
+    <li>Klik <b>"⬇️ Download SVG"</b> → file <code>aicode-diagram-figma.svg</code> tersimpan</li>
+    <li>Buka <b>Figma</b> → buat Frame baru ukuran <b>1720 × 900</b></li>
+    <li><b>Drag & drop</b> file SVG ke dalam Frame → semua layer langsung muncul terstruktur ✓</li>
+  </ol>
+</div>
+
+<div class="btn-row">
+  <button class="btn dl" onclick="downloadSVG()">⬇️ Download SVG untuk Figma</button>
+  <button class="btn pr" id="prev-btn" onclick="togglePreview()">👁 Tampilkan Preview</button>
+</div>
+<div id="progress">⚙️ Generating SVG…</div>
+
+<div id="prev-wrap" class="prev-wrap" style="display:none;">
+  <div id="preview"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<script>
+// ─────────────────────────────────────────────────────────────────
+// 1. COLOUR PALETTE
+// ─────────────────────────────────────────────────────────────────
+const C = {
+  green:  {border:'#238636', ibg:'#0d2b0d', ico:'#3fb950', step:'#1a7f37'},
+  blue:   {border:'#1f6feb', ibg:'#081525', ico:'#58a6ff', step:'#1158c7'},
+  purple: {border:'#8957e5', ibg:'#150b22', ico:'#bc8cff', step:'#6e40c9'},
+  orange: {border:'#d97706', ibg:'#1a0e02', ico:'#fbbf24', step:'#b45309'},
+  pink:   {border:'#db2777', ibg:'#1a0511', ico:'#f472b6', step:'#be185d'},
+  teal:   {border:'#0e7490', ibg:'#041318', ico:'#22d3ee', step:'#0c6177'},
+  red:    {border:'#f85149', ibg:'#1c0808', ico:'#f85149', step:'#b91c1c'},
+};
+
+const NH = 52; // node height
+
+// ─────────────────────────────────────────────────────────────────
+// 2. NODE DATA
+// ─────────────────────────────────────────────────────────────────
+const NODES = [
+  // MODE LATIHAN ─────────────────────────────────────────────────
+  {id:'lt-open',   x:106,  y:105, w:165, c:'green',  s:1,    e:'📖', t:'Buka Soal',           u:'Baca deskripsi & starter code'},
+  {id:'lt-edit',   x:285,  y:105, w:165, c:'green',  s:2,    e:'✏️',  t:'Editor Kode',          u:'Tulis & edit solusi'},
+  {id:'lt-run',    x:464,  y:105, w:170, c:'green',  s:3,    e:'▶️',  t:'Jalankan Kode',        u:'Ulang sesering apapun'},
+  {id:'lt-result', x:1058, y:105, w:192, c:'green',  s:4,    e:'📊', t:'Lihat Output',         u:'Test result & skor'},
+  {id:'lt-retry',  x:1270, y:105, w:190, c:'green',  s:null, e:'🔁', t:'Coba Lagi / Ubah',     u:'Tanpa batas, riwayat tersimpan'},
+
+  // LAYANAN SERVER ───────────────────────────────────────────────
+  {id:'n-sec',     x:618,  y:262, w:182, c:'orange', s:null, e:'🛡️', t:'Cek Keamanan',         u:'Filter perintah berbahaya'},
+  {id:'n-exec',    x:822,  y:262, w:210, c:'orange', s:null, e:'⚡', t:'Code Executor',        u:'Sandbox aman + test cases',    ext:1},
+
+  // MODE UJIAN ───────────────────────────────────────────────────
+  {id:'ej-open',   x:106,  y:375, w:165, c:'blue',   s:1,    e:'📖', t:'Buka Soal',            u:'Identitas tercatat'},
+  {id:'ej-edit',   x:285,  y:375, w:165, c:'blue',   s:2,    e:'✏️',  t:'Editor Kode',          u:'Semua percobaan disimpan'},
+  {id:'ej-run',    x:464,  y:375, w:170, c:'blue',   s:3,    e:'▶️',  t:'Jalankan Kode',        u:'Coba sebelum mengumpulkan'},
+  {id:'ej-result', x:1058, y:375, w:192, c:'blue',   s:4,    e:'📊', t:'Lihat Hasil + Skor',   u:'Keputusan: revisi atau kumpul?'},
+  {id:'ej-submit', x:1270, y:375, w:192, c:'blue',   s:5,    e:'📤', t:'Kirim ke Guru',        u:'Hanya 1x kesempatan'},
+  {id:'ej-locked', x:1481, y:375, w:190, c:'red',    s:null, e:'🔒', t:'Kode Terkunci',        u:'Menunggu penilaian guru'},
+
+  // BANTUAN AI ───────────────────────────────────────────────────
+  {id:'n-hint',    x:106,  y:557, w:194, c:'purple', s:null, e:'💡', t:'Minta Bantuan AI',     u:'Klik tombol "Bantuan"'},
+  {id:'n-gem',     x:318,  y:557, w:210, c:'pink',   s:null, e:'✨', t:'Google Gemini AI',     u:'Analisis kode & error',        ext:1},
+  {id:'n-fb',      x:548,  y:557, w:220, c:'purple', s:null, e:'💬', t:'Tampilkan Feedback',   u:'Diagnosis + saran + materi'},
+
+  // GURU ─────────────────────────────────────────────────────────
+  {id:'tc-rep',    x:106,  y:668, w:188, c:'blue',   s:6,    e:'📋', t:'Dashboard Laporan',    u:'Analitik kelas lengkap'},
+  {id:'tc-rev',    x:344,  y:668, w:196, c:'blue',   s:7,    e:'🔍', t:'Review Kode Siswa',    u:'Timeline & semua percobaan'},
+  {id:'tc-grd',    x:590,  y:668, w:165, c:'blue',   s:8,    e:'⭐', t:'Beri Nilai',            u:'Input ke Gradebook'},
+  {id:'tc-ovr',    x:815,  y:668, w:208, c:'purple', s:9,    e:'📝', t:'Koreksi Feedback AI',  u:'Override & tandai contoh'},
+  {id:'tc-ex',     x:1081, y:668, w:208, c:'pink',   s:10,   e:'🔄', t:'Dijadikan Contoh AI',  u:'AI makin pintar'},
+
+  // ADMIN / INFRA ────────────────────────────────────────────────
+  {id:'ad-cfg',    x:106,  y:780, w:185, c:'purple', s:null, e:'⚙️', t:'Konfigurasi Sistem',   u:'Settings plugin Moodle'},
+  {id:'ad-key',    x:348,  y:762, w:188, c:'pink',   s:null, e:'🔑', t:'Gemini API Key',       u:'Model & kunci akses AI'},
+  {id:'ad-url',    x:348,  y:818, w:188, c:'orange', s:null, e:'🌐', t:'URL & Batas Harian',   u:'Executor URL + limit AI/hari'},
+  {id:'ad-db',     x:588,  y:780, w:192, c:'teal',   s:null, e:'💾', t:'Database Moodle',      u:'Simpan semua data aktivitas',  ext:1},
+  {id:'ad-gb',     x:836,  y:780, w:192, c:'teal',   s:null, e:'📚', t:'Gradebook Moodle',     u:'Rekap & ekspor nilai'},
+];
+
+// ─────────────────────────────────────────────────────────────────
+// 3. SECTION DATA
+// ─────────────────────────────────────────────────────────────────
+const SECS = [
+  {id:'sec-lt',  x:50,  y:83,  w:1620, h:155, col:'#238636', op:.05, solid:0, rx:14, lbl:'MODE LATIHAN',           lc:'#3fb950'},
+  {id:'sec-sh',  x:610, y:255, w:440,  h:82,  col:'#d97706', op:.06, solid:1, rx:10, lbl:'LAYANAN SERVER (BERSAMA)',lc:'#fbbf24'},
+  {id:'sec-ej',  x:50,  y:355, w:1620, h:168, col:'#1f6feb', op:.05, solid:0, rx:14, lbl:'MODE UJIAN',              lc:'#58a6ff'},
+  {id:'sec-ai',  x:50,  y:547, w:880,  h:82,  col:'#8957e5', op:.05, solid:0, rx:12, lbl:'BANTUAN AI (KEDUA MODE)', lc:'#bc8cff'},
+  {id:'sec-tc',  x:50,  y:652, w:1280, h:82,  col:'#1f6feb', op:.04, solid:0, rx:12, lbl:'ALUR GURU',               lc:'#58a6ff'},
+  {id:'sec-adm', x:50,  y:756, w:500,  h:90,  col:'#8957e5', op:.04, solid:0, rx:12, lbl:'KONFIGURASI ADMIN',       lc:'#bc8cff'},
+  {id:'sec-inf', x:568, y:756, w:570,  h:90,  col:'#0e7490', op:.04, solid:0, rx:12, lbl:'PENYIMPANAN DATA',        lc:'#22d3ee'},
+];
+
+// ─────────────────────────────────────────────────────────────────
+// 4. ACTOR DATA
+// ─────────────────────────────────────────────────────────────────
+const ACTORS = [
+  {id:'as1', x:16, y:104, e:'👨‍🎓', n:'Siswa', fill:'#071f07', stroke:'#238636', nc:'#3fb950'},
+  {id:'as2', x:16, y:375, e:'👨‍🎓', n:'Siswa', fill:'#071119', stroke:'#1f6feb', nc:'#58a6ff'},
+  {id:'at',  x:16, y:668, e:'👩‍🏫', n:'Guru',  fill:'#071119', stroke:'#1f6feb', nc:'#58a6ff'},
+  {id:'aa',  x:16, y:776, e:'👨‍💼', n:'Admin', fill:'#130b22', stroke:'#8957e5', nc:'#bc8cff'},
+];
+
+// ─────────────────────────────────────────────────────────────────
+// 5. SVG GENERATOR
+// ─────────────────────────────────────────────────────────────────
+function generateSVG() {
+  const W = 1720, H = 900;
+
+  // Node lookup
+  const nm = Object.fromEntries(NODES.map(n => [n.id, n]));
+  const lx = id => nm[id].x;
+  const rx = id => nm[id].x + nm[id].w;
+  const cx = id => nm[id].x + nm[id].w / 2;
+  const ty = id => nm[id].y;
+  const by = id => nm[id].y + NH;
+  const cy = id => nm[id].y + NH / 2;
+
+  const xi = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Smooth horizontal bezier (S-curve)
+  const hbez = (x1,y1,x2,y2) => {
+    const mx = (x1+x2)/2;
+    return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+  };
+
+  // Path helper
+  const pth = (d,col,dash='',w=1.8,mk='',op=.88) => {
+    const da = dash ? `stroke-dasharray="${dash}"` : '';
+    const ma = mk   ? `marker-end="url(#${mk})"` : '';
+    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="${op}" ${da} ${ma}/>`;
+  };
+
+  // ── DEFS ────────────────────────────────────────────────────
+  const defs = `<defs>
+  <marker id="ag" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#3fb950"/></marker>
+  <marker id="ab" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#58a6ff"/></marker>
+  <marker id="ap" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#bc8cff"/></marker>
+  <marker id="ao" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#fbbf24"/></marker>
+  <marker id="ak" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#f472b6"/></marker>
+  <marker id="at" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#22d3ee"/></marker>
+  <marker id="ar" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,9 3,0 6" fill="#f85149"/></marker>
+  <filter id="ns" x="-12%" y="-12%" width="124%" height="124%">
+    <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.45"/>
+  </filter>
+</defs>`;
+
+  // ── BACKGROUND ──────────────────────────────────────────────
+  const bg = `<rect width="${W}" height="${H}" fill="#0d1117"/>`;
+
+  // ── TITLE ────────────────────────────────────────────────────
+  const titleSVG = `
+<g id="diagram-title">
+  <text x="50" y="40" font-family="Segoe UI,system-ui,Arial,sans-serif" font-size="22" font-weight="800" fill="#58a6ff">&#10022; Alur Kerja Plugin AiCode</text>
+  <text x="50" y="62" font-family="Segoe UI,system-ui,Arial,sans-serif" font-size="12" fill="#8b949e">Aktivitas pemrograman berbantuan AI di Moodle UNNES &#8212; Mode Latihan &amp; Mode Ujian</text>
+</g>`;
+
+  // ── SECTION BACKGROUNDS ─────────────────────────────────────
+  let secSVG = '<g id="sections">\n';
+  SECS.forEach(s => {
+    const da = s.solid ? '' : 'stroke-dasharray="7,4"';
+    secSVG += `  <rect id="${s.id}" x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="${s.rx}" fill="${s.col}" fill-opacity="${s.op}" stroke="${s.col}" stroke-width="1" ${da}/>\n`;
+    // label pill
+    const lw = s.lbl.length * 6.5 + 26;
+    secSVG += `  <rect x="${s.x+14}" y="${s.y+9}" width="${lw}" height="18" rx="4" fill="${s.col}" fill-opacity="0.18"/>\n`;
+    secSVG += `  <text x="${s.x+24}" y="${s.y+18}" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="10" font-weight="700" fill="${s.lc}" letter-spacing="1.4">${xi(s.lbl)}</text>\n`;
+  });
+  secSVG += '</g>';
+
+  // ── MODE BANNERS ─────────────────────────────────────────────
+  const banners = `
+<g id="mode-banners">
+  <rect x="620" y="88" width="186" height="26" rx="8" fill="#238636" fill-opacity="0.18" stroke="#238636" stroke-width="1"/>
+  <text x="634" y="101" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#3fb950">&#128218; MODE LATIHAN</text>
+  <rect x="811" y="92" width="90" height="18" rx="9" fill="#0d2b0d" stroke="#238636" stroke-width="1"/>
+  <text x="856" y="101" dominant-baseline="middle" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="8.5" font-weight="700" fill="#3fb950">&#8734; BISA DIULANG</text>
+
+  <rect x="620" y="360" width="172" height="26" rx="8" fill="#1f6feb" fill-opacity="0.18" stroke="#1f6feb" stroke-width="1"/>
+  <text x="634" y="373" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#58a6ff">&#128221; MODE UJIAN</text>
+  <rect x="798" y="364" width="90" height="18" rx="9" fill="#081525" stroke="#1f6feb" stroke-width="1"/>
+  <text x="843" y="373" dominant-baseline="middle" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="8.5" font-weight="700" fill="#58a6ff">&#9888; 1&#215; KUMPUL</text>
+  <rect x="894" y="364" width="108" height="18" rx="9" fill="#081525" stroke="#1f6feb" stroke-width="1"/>
+  <text x="948" y="373" dominant-baseline="middle" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="8.5" font-weight="700" fill="#58a6ff">&#128274; KODE TERKUNCI</text>
+</g>`;
+
+  // ── CONNECTIONS ──────────────────────────────────────────────
+  const G='#3fb950', B='#58a6ff', P='#bc8cff', O='#fbbf24', K='#f472b6', T='#22d3ee', R='#f85149';
+  const aRx = 68; // actor right edge: 16 + 52
+
+  let conn = '<g id="connections">\n';
+
+  // Actor → first node
+  conn += pth(`M${aRx},${104+26} L${lx('lt-open')},${cy('lt-open')}`, G,'',1.8,'ag');
+  conn += pth(`M${aRx},${375+26} L${lx('ej-open')},${cy('ej-open')}`, B,'',1.8,'ab');
+  conn += pth(`M${aRx},${668+26} L${lx('tc-rep')},${cy('tc-rep')}`,   B,'',1.8,'ab');
+  conn += pth(`M${aRx},${776+26} L${lx('ad-cfg')},${cy('ad-cfg')}`,   P,'',1.8,'ap');
+
+  // Mode Latihan main flow
+  conn += pth(`M${rx('lt-open')},${cy('lt-open')} L${lx('lt-edit')},${cy('lt-edit')}`, G,'',1.8,'ag');
+  conn += pth(`M${rx('lt-edit')},${cy('lt-edit')} L${lx('lt-run')},${cy('lt-run')}`,   G,'',1.8,'ag');
+  conn += pth(`M${rx('lt-result')},${cy('lt-result')} L${lx('lt-retry')},${cy('lt-retry')}`, G,'',1.8,'ag');
+
+  // Mode Ujian main flow
+  conn += pth(`M${rx('ej-open')},${cy('ej-open')} L${lx('ej-edit')},${cy('ej-edit')}`, B,'',1.8,'ab');
+  conn += pth(`M${rx('ej-edit')},${cy('ej-edit')} L${lx('ej-run')},${cy('ej-run')}`,   B,'',1.8,'ab');
+  conn += pth(`M${rx('ej-result')},${cy('ej-result')} L${lx('ej-submit')},${cy('ej-submit')}`, B,'',1.8,'ab');
+  conn += pth(`M${rx('ej-submit')},${cy('ej-submit')} L${lx('ej-locked')},${cy('ej-locked')}`, R,'',1.8,'ar');
+
+  // Both run → Security (diagonal)
+  const mxLtSec = (rx('lt-run')+lx('n-sec'))/2;
+  conn += pth(`M${rx('lt-run')},${cy('lt-run')} C${mxLtSec},${cy('lt-run')} ${mxLtSec},${cy('n-sec')} ${lx('n-sec')},${cy('n-sec')}`, O,'',1.8,'ao');
+  const mxEjSec = (rx('ej-run')+lx('n-sec'))/2;
+  conn += pth(`M${rx('ej-run')},${cy('ej-run')} C${mxEjSec},${cy('ej-run')} ${mxEjSec},${cy('n-sec')} ${lx('n-sec')},${cy('n-sec')}`, O,'',1.8,'ao');
+
+  // Security → Executor
+  conn += pth(`M${rx('n-sec')},${cy('n-sec')} L${lx('n-exec')},${cy('n-exec')}`, O,'',1.8,'ao');
+
+  // Executor → both results (fan out)
+  const mxExLt = (rx('n-exec')+lx('lt-result'))/2;
+  conn += pth(`M${rx('n-exec')},${cy('n-exec')} C${mxExLt},${cy('n-exec')} ${mxExLt},${cy('lt-result')} ${lx('lt-result')},${cy('lt-result')}`, G,'',1.8,'ag');
+  const mxExEj = (rx('n-exec')+lx('ej-result'))/2;
+  conn += pth(`M${rx('n-exec')},${cy('n-exec')} C${mxExEj},${cy('n-exec')} ${mxExEj},${cy('ej-result')} ${lx('ej-result')},${cy('ej-result')}`, B,'',1.8,'ab');
+
+  // Retry loop back to editor
+  conn += pth(
+    `M${cx('lt-retry')},${ty('lt-retry')} C${cx('lt-retry')},${ty('lt-retry')-46} ${cx('lt-edit')},${ty('lt-edit')-46} ${cx('lt-edit')},${ty('lt-edit')}`,
+    G,'6,3',1.4,'ag',.55
+  );
+
+  // Both editors → AI Hint (dashed)
+  conn += pth(`M${cx('lt-edit')},${by('lt-edit')} C${cx('lt-edit')},${by('lt-edit')+60} ${cx('n-hint')},${ty('n-hint')-30} ${cx('n-hint')},${ty('n-hint')}`, P,'5,3',1.4,'ap',.65);
+  conn += pth(`M${cx('ej-edit')+18},${by('ej-edit')} C${cx('ej-edit')+18},${by('ej-edit')+20} ${cx('n-hint')+18},${ty('n-hint')-30} ${cx('n-hint')+18},${ty('n-hint')}`, P,'5,3',1.4,'ap',.45);
+
+  // AI Hint flow
+  conn += pth(`M${rx('n-hint')},${cy('n-hint')} L${lx('n-gem')},${cy('n-gem')}`,   P,'',1.8,'ap');
+  conn += pth(`M${rx('n-gem')},${cy('n-gem')}   L${lx('n-fb')},${cy('n-fb')}`,     K,'',1.8,'ak');
+
+  // Teacher flow
+  conn += pth(`M${rx('tc-rep')},${cy('tc-rep')} L${lx('tc-rev')},${cy('tc-rev')}`, B,'',1.8,'ab');
+  conn += pth(`M${rx('tc-rev')},${cy('tc-rev')} L${lx('tc-grd')},${cy('tc-grd')}`, B,'',1.8,'ab');
+  conn += pth(`M${rx('tc-grd')},${cy('tc-grd')} L${lx('tc-ovr')},${cy('tc-ovr')}`, B,'',1.8,'ab');
+  conn += pth(`M${rx('tc-ovr')},${cy('tc-ovr')} L${lx('tc-ex')},${cy('tc-ex')}`,   P,'',1.8,'ap');
+
+  // Teacher example → Gemini (loop back)
+  conn += pth(`M${cx('tc-ex')},${ty('tc-ex')} C${cx('tc-ex')},${ty('tc-ex')-80} ${cx('n-gem')},${by('n-gem')+80} ${cx('n-gem')},${by('n-gem')}`, K,'7,4',1.4,'ak',.55);
+
+  // Submit → DB, Grade → Gradebook
+  conn += pth(`M${cx('ej-submit')},${by('ej-submit')} C${cx('ej-submit')},${by('ej-submit')+80} ${cx('ad-db')},${ty('ad-db')-80} ${cx('ad-db')},${ty('ad-db')}`, T,'5,3',1.3,'at',.55);
+  conn += pth(`M${cx('tc-grd')},${by('tc-grd')} C${cx('tc-grd')},${by('tc-grd')+40} ${cx('ad-gb')},${ty('ad-gb')-40} ${cx('ad-gb')},${ty('ad-gb')}`, T,'5,3',1.3,'at',.6);
+
+  // Admin config fan
+  const mxCK = (rx('ad-cfg')+lx('ad-key'))/2;
+  conn += pth(`M${rx('ad-cfg')},${cy('ad-cfg')} C${mxCK},${cy('ad-cfg')} ${mxCK},${cy('ad-key')} ${lx('ad-key')},${cy('ad-key')}`, K,'4,2',1.4,'ak',.75);
+  const mxCU = (rx('ad-cfg')+lx('ad-url'))/2;
+  conn += pth(`M${rx('ad-cfg')},${cy('ad-cfg')} C${mxCU},${cy('ad-cfg')} ${mxCU},${cy('ad-url')} ${lx('ad-url')},${cy('ad-url')}`, O,'4,2',1.4,'ao',.75);
+
+  // API Key → Gemini, URL → Executor (config dashed)
+  conn += pth(`M${cx('ad-key')},${ty('ad-key')} C${cx('ad-key')},${ty('ad-key')-140} ${cx('n-gem')},${by('n-gem')+80} ${cx('n-gem')},${by('n-gem')}`, K,'6,3',1.2,'ak',.38);
+  conn += pth(`M${cx('ad-url')},${ty('ad-url')} C${cx('ad-url')},${ty('ad-url')-320} ${cx('n-exec')},${by('n-exec')+160} ${cx('n-exec')},${by('n-exec')}`, O,'6,3',1.2,'ao',.32);
+
+  conn += '</g>';
+
+  // ── ACTORS ───────────────────────────────────────────────────
+  let actSVG = '<g id="actors">\n';
+  ACTORS.forEach(a => {
+    const r = 26, acx = a.x+r, acy = a.y+r;
+    actSVG += `<g id="${a.id}">
+  <circle cx="${acx}" cy="${acy}" r="${r}" fill="${a.fill}" stroke="${a.stroke}" stroke-width="2"/>
+  <text x="${acx}" y="${acy}" dominant-baseline="middle" text-anchor="middle"
+        font-family="Segoe UI Emoji,Apple Color Emoji,Noto Color Emoji,sans-serif" font-size="22">${a.e}</text>
+  <text x="${acx}" y="${a.y+r*2+14}" dominant-baseline="middle" text-anchor="middle"
+        font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="${a.nc}">${xi(a.n)}</text>
+</g>\n`;
+  });
+  actSVG += '</g>';
+
+  // ── NODES ────────────────────────────────────────────────────
+  let nodeSVG = '<g id="nodes">\n';
+  NODES.forEach(n => {
+    const col = C[n.c];
+    const {x, y, w} = n;
+    const da = n.ext ? 'stroke-dasharray="5,3"' : '';
+    let badge = '';
+    if (n.s) {
+      badge = `
+  <circle cx="${x}" cy="${y}" r="9" fill="${col.step}" stroke="#0d1117" stroke-width="2"/>
+  <text x="${x}" y="${y}" dominant-baseline="middle" text-anchor="middle"
+        font-family="Arial,sans-serif" font-size="8.5" font-weight="800" fill="#fff">${n.s}</text>`;
+    }
+    nodeSVG += `<g id="${n.id}">
+  <rect x="${x}" y="${y}" width="${w}" height="${NH}" rx="10" fill="#161b22" stroke="${col.border}" stroke-width="1" ${da} filter="url(#ns)"/>
+  <rect x="${x+7}" y="${y+9}" width="34" height="34" rx="7" fill="${col.ibg}"/>
+  <text x="${x+24}" y="${y+26}" dominant-baseline="middle" text-anchor="middle"
+        font-family="Segoe UI Emoji,Apple Color Emoji,Noto Color Emoji,sans-serif" font-size="17">${n.e}</text>
+  <text x="${x+50}" y="${y+21}" dominant-baseline="middle"
+        font-family="Segoe UI,system-ui,Arial,sans-serif" font-size="12" font-weight="700" fill="#e6edf3">${xi(n.t)}</text>
+  <text x="${x+50}" y="${y+37}" dominant-baseline="middle"
+        font-family="Segoe UI,system-ui,Arial,sans-serif" font-size="10" fill="#8b949e">${xi(n.u)}</text>
+  ${badge}
+</g>\n`;
+  });
+  nodeSVG += '</g>';
+
+  // ── ANNOTATIONS ──────────────────────────────────────────────
+  const ann = `
+<g id="annotations">
+  <rect x="1481" y="105" width="192" height="52" rx="9" fill="#1c2128" stroke="#30363d" stroke-width="1"/>
+  <text x="1494" y="121" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="10" font-weight="700" fill="#c9d1d9">&#8734; Tanpa Batas</text>
+  <text x="1494" y="137" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="9.5" fill="#8b949e">Revisi &amp; ulangi sesering</text>
+  <text x="1494" y="151" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="9.5" fill="#8b949e">yang diinginkan</text>
+
+  <rect x="1481" y="298" width="192" height="54" rx="9" fill="#1c0808" stroke="#f85149" stroke-width="1"/>
+  <text x="1494" y="315" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="10" font-weight="700" fill="#f85149">&#9888; Hanya 1 Kali!</text>
+  <text x="1494" y="331" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="9.5" fill="#8b949e">Setelah kirim, kode tidak</text>
+  <text x="1494" y="345" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="9.5" fill="#8b949e">bisa diubah lagi</text>
+
+  <rect x="792" y="557" width="194" height="52" rx="9" fill="#1c2128" stroke="#30363d" stroke-width="1"/>
+  <text x="805" y="573" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="10" font-weight="700" fill="#c9d1d9">&#128161; Cache &amp; Batas Harian</text>
+  <text x="805" y="589" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="9.5" fill="#8b949e">Hasil AI disimpan cache.</text>
+  <text x="805" y="603" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="9.5" fill="#8b949e">Dibatasi X permintaan/hari</text>
+</g>`;
+
+  // ── LEGEND ───────────────────────────────────────────────────
+  const legendItems = [
+    {y:706, col:'#3fb950', dash:'',    lbl:'Alur Mode Latihan'},
+    {y:722, col:'#58a6ff', dash:'',    lbl:'Alur Mode Ujian'},
+    {y:738, col:'#fbbf24', dash:'',    lbl:'Layanan server'},
+    {y:754, col:'#bc8cff', dash:'',    lbl:'AI &amp; Admin'},
+    {y:770, col:'#22d3ee', dash:'',    lbl:'Data &amp; Penyimpanan'},
+    {y:786, col:'#484f58', dash:'6,3', lbl:'Alur konfigurasi'},
+  ];
+  const legendLines = legendItems.map(l => {
+    const da = l.dash ? `stroke-dasharray="${l.dash}"` : '';
+    return `<line x1="1546" y1="${l.y}" x2="1572" y2="${l.y}" stroke="${l.col}" stroke-width="2" ${da}/>
+    <text x="1580" y="${l.y}" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#c9d1d9">${l.lbl}</text>`;
+  }).join('\n');
+
+  const legend = `
+<g id="legend">
+  <rect x="1530" y="668" width="172" height="192" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="1546" y="688" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="1.3" fill="#8b949e">KETERANGAN</text>
+  ${legendLines}
+  <rect x="1546" y="797" width="12" height="12" rx="2" fill="none" stroke="#8b949e" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="1580" y="803" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#c9d1d9">Layanan eksternal</text>
+  <text x="1546" y="844" font-family="Segoe UI,Arial,sans-serif" font-size="9" fill="#484f58">aicode-diagram-figma.svg</text>
+  <text x="1546" y="856" font-family="Segoe UI,Arial,sans-serif" font-size="9" fill="#484f58">Plugin AiCode &#8212; Moodle UNNES</text>
+</g>`;
+
+  // ── ASSEMBLE ─────────────────────────────────────────────────
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"
+     xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+${defs}
+${bg}
+${titleSVG}
+${secSVG}
+${banners}
+${conn}
+${actSVG}
+${nodeSVG}
+${ann}
+${legend}
+</svg>`;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 6. DOWNLOAD + PREVIEW
+// ─────────────────────────────────────────────────────────────────
+function downloadSVG() {
+  const prog = document.getElementById('progress');
+  prog.style.display = 'block';
+  setTimeout(() => {
+    const svg = generateSVG();
+    const blob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'aicode-diagram-figma.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    prog.style.display = 'none';
+  }, 100);
+}
+
+let shown = false;
+function togglePreview() {
+  shown = !shown;
+  const wrap = document.getElementById('prev-wrap');
+  const btn  = document.getElementById('prev-btn');
+  if (shown) {
+    const svg = generateSVG();
+    const scale = Math.min(1, (window.innerWidth - 80) / 1720);
+    document.getElementById('preview').style.transform = `scale(${scale})`;
+    document.getElementById('preview').style.width = '1720px';
+    document.getElementById('preview').style.height = Math.round(900 * scale) + 'px';
+    document.getElementById('preview').innerHTML = svg;
+    wrap.style.display = 'block';
+    btn.textContent = '🙈 Sembunyikan Preview';
+  } else {
+    wrap.style.display = 'none';
+    btn.textContent = '👁 Tampilkan Preview';
+  }
+}
+</script>
+</body>
+</html>

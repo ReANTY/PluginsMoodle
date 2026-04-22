@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FigJam Plugin — AiCode Diagram</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117; color: #e6edf3;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh; padding: 40px 24px 80px;
+  display: flex; flex-direction: column; align-items: center; gap: 28px;
+}
+h1 {
+  font-size: 26px; font-weight: 800;
+  background: linear-gradient(135deg, #58a6ff, #bc8cff, #f472b6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.subtitle { color: #8b949e; font-size: 13px; text-align: center; max-width: 580px; line-height: 1.7; }
+
+/* Figma-colored badge */
+.fj-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: linear-gradient(135deg, #1abcfe22, #0acf8322);
+  border: 1px solid #1abcfe; border-radius: 24px;
+  padding: 6px 18px; font-size: 12px; font-weight: 700; color: #1abcfe;
+}
+
+/* Step cards */
+.steps { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 720px; width: 100%; }
+.step-card {
+  background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+  padding: 16px 18px; flex: 1; min-width: 155px; max-width: 185px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.step-card a { color: #58a6ff; }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, #1f6feb, #8957e5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #fff;
+}
+.step-card h3 { font-size: 12.5px; font-weight: 700; color: #c9d1d9; }
+.step-card p  { font-size: 11px; color: #8b949e; line-height: 1.6; }
+
+/* Code panels */
+.code-panel { background: #161b22; border: 1px solid #30363d; border-radius: 14px; width: 100%; max-width: 860px; overflow: hidden; }
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid #21262d;
+  background: #1c2128;
+}
+.code-header-left { display: flex; align-items: center; gap: 10px; }
+.code-filename { font-size: 13px; font-weight: 700; color: #c9d1d9; font-family: monospace; }
+.code-lang { font-size: 10px; color: #8b949e; background: #21262d; border-radius: 4px; padding: 2px 8px; }
+.copy-btn {
+  background: #21262d; border: 1px solid #30363d; border-radius: 8px;
+  color: #8b949e; padding: 6px 14px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all .2s;
+}
+.copy-btn:hover { background: #30363d; color: #e6edf3; }
+.copy-btn.ok { background: rgba(35,134,54,.2); border-color: #238636; color: #3fb950; }
+.code-body {
+  padding: 18px; overflow-x: auto; max-height: 480px; overflow-y: auto;
+}
+.code-body pre {
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px; line-height: 1.65; color: #c9d1d9; white-space: pre;
+}
+/* syntax highlight helpers */
+.kw  { color: #ff7b72; }
+.str { color: #a5d6ff; }
+.cmt { color: #8b949e; font-style: italic; }
+.fn  { color: #d2a8ff; }
+.num { color: #79c0ff; }
+
+/* Warning box */
+.warning {
+  background: rgba(217,119,6,.12); border: 1px solid #d97706; border-radius: 10px;
+  padding: 14px 18px; max-width: 860px; width: 100%;
+  font-size: 12.5px; color: #fbbf24; line-height: 1.7;
+}
+.warning b { color: #fcd34d; }
+
+/* Download manifest btn */
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 11px 24px;
+  border-radius: 10px; border: none; font-family: inherit; font-size: 13px;
+  font-weight: 700; cursor: pointer; transition: transform .2s, box-shadow .2s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn.primary { background: linear-gradient(135deg, #1abcfe, #0acf83); color: #000; box-shadow: 0 4px 14px rgba(26,188,254,.25); }
+.btn.secondary { background: #161b22; color: #8b949e; border: 1px solid #30363d; }
+</style>
+</head>
+<body>
+
+<span class="fj-badge">
+  <svg width="16" height="16" viewBox="0 0 38 57" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M19 28.5C19 23.8 22.9 20 27.5 20C32.1 20 36 23.8 36 28.5C36 33.2 32.1 37 27.5 37C22.9 37 19 33.2 19 28.5Z" fill="#1abcfe"/>
+    <path d="M2 47C2 42.3 5.9 38.5 10.5 38.5H19V47C19 51.7 15.1 55.5 10.5 55.5C5.9 55.5 2 51.7 2 47Z" fill="#0acf83"/>
+    <path d="M19 2V19.5H27.5C32.1 19.5 36 15.7 36 11C36 6.3 32.1 2.5 27.5 2.5L19 2Z" fill="#ff7262"/>
+    <path d="M2 11C2 15.7 5.9 19.5 10.5 19.5H19V2.5H10.5C5.9 2.5 2 6.3 2 11Z" fill="#f24e1e"/>
+    <path d="M2 28.5C2 33.2 5.9 37 10.5 37H19V20H10.5C5.9 20 2 23.8 2 28.5Z" fill="#a259ff"/>
+  </svg>
+  FigJam Plugin
+</span>
+
+<h1>📐 Buat Diagram AiCode di FigJam</h1>
+<p class="subtitle">
+  Plugin ini akan membuat diagram alur kerja plugin AiCode secara otomatis di dalam <strong style="color:#e6edf3">FigJam</strong>,
+  lengkap dengan semua node, panah, warna, dan label yang terstruktur rapi.
+</p>
+
+<!-- REQUIREMENT ALERT -->
+<div class="warning" style="max-width:720px;border-color:#f85149;background:rgba(248,81,73,.10);">
+  <b style="color:#ffa198;">⚠️ Syarat Wajib: Figma Desktop App</b><br>
+  Plugin development <b>tidak bisa</b> dilakukan di browser. Kamu harus install
+  <a href="https://www.figma.com/downloads/" style="color:#fbbf24;" target="_blank"><b>Figma Desktop App</b></a>
+  terlebih dahulu, lalu buka file <b>FigJam</b> dari dalamnya.
+</div>
+
+<!-- STEPS -->
+<div style="max-width:760px;width:100%;">
+
+  <!-- Visual path -->
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:14px;padding:18px 22px;margin-bottom:18px;">
+    <div style="font-size:11px;font-weight:700;color:#8b949e;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:12px;">📍 Jalur Menu yang Benar</div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;">
+      <span style="background:#21262d;border:1px solid #30363d;border-radius:6px;padding:5px 12px;color:#e6edf3;font-weight:600;">☰ Main Menu</span>
+      <span style="color:#484f58;">→</span>
+      <span style="background:#21262d;border:1px solid #30363d;border-radius:6px;padding:5px 12px;color:#e6edf3;font-weight:600;">Plugins</span>
+      <span style="color:#484f58;">→</span>
+      <span style="background:#21262d;border:1px solid #30363d;border-radius:6px;padding:5px 12px;color:#e6edf3;font-weight:600;">Development</span>
+      <span style="color:#484f58;">→</span>
+      <span style="background:rgba(31,111,235,.18);border:1px solid #1f6feb;border-radius:6px;padding:5px 12px;color:#58a6ff;font-weight:700;">+ New plugin...</span>
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:#8b949e;line-height:1.7;">
+      <b style="color:#c9d1d9;">☰ Main Menu</b> = ikon <b>logo Figma</b> di pojok kiri atas (bukan "Resources").<br>
+      <b style="color:#c9d1d9;">Alternatif:</b> Klik kanan di canvas FigJam → <b>Plugins → Development → New plugin...</b>
+    </div>
+  </div>
+
+  <!-- Step cards horizontal -->
+  <div class="steps" style="max-width:100%;">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h3>Install Desktop App</h3>
+      <p>Download & install <b>Figma Desktop</b> dari <a href="https://www.figma.com/downloads/" style="color:#58a6ff;">figma.com/downloads</a>. Buat/buka file <b>FigJam</b>.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h3>Buka Plugin Dev</h3>
+      <p>Klik <b>logo Figma (☰)</b> di pojok kiri atas → <b>Plugins → Development → New plugin...</b></p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h3>Pilih FigJam</h3>
+      <p>Beri nama bebas, pilih editor type <b>"FigJam"</b>, klik <b>Save</b>. Folder plugin terbuka otomatis.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <h3>Ganti code.js</h3>
+      <p>Buka folder plugin, <b>hapus isi</b> <code>code.js</code> bawaan, tempel kode di bawah, lalu <b>Run</b>.</p>
+    </div>
+  </div>
+</div>
+
+<div class="warning">
+  <b>💡 Tidak punya Desktop App?</b> Gunakan metode <b>SVG Import</b> yang jauh lebih mudah:
+  buka <a href="figma-export.html" style="color:#fbbf24;"><b>figma-export.html</b></a>,
+  download file SVG-nya, lalu drag &amp; drop ke FigJam browser.
+  Hasilnya hampir sama ✓
+</div>
+
+<!-- manifest.json -->
+<div class="code-panel">
+  <div class="code-header">
+    <div class="code-header-left">
+      <span class="code-filename">manifest.json</span>
+      <span class="code-lang">JSON</span>
+    </div>
+    <button class="copy-btn" onclick="copyCode('manifest-code','manifest-btn')" id="manifest-btn">📋 Copy</button>
+  </div>
+  <div class="code-body">
+    <pre id="manifest-code">{
+  "name": "AiCode Diagram",
+  "id": "aicode-workflow-diagram",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figjam"]
+}</pre>
+  </div>
+</div>
+
+<!-- code.js -->
+<div class="code-panel">
+  <div class="code-header">
+    <div class="code-header-left">
+      <span class="code-filename">code.js</span>
+      <span class="code-lang">JavaScript</span>
+    </div>
+    <button class="copy-btn" onclick="copyCode('plugin-code','plugin-btn')" id="plugin-btn">📋 Copy Kode Plugin</button>
+  </div>
+  <div class="code-body">
+    <pre id="plugin-code"></pre>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn primary" onclick="downloadPlugin()">⬇️ Download code.js</button>
+  <button class="btn secondary" onclick="downloadManifest()">⬇️ Download manifest.json</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// THE PLUGIN CODE (stored as a JS string to allow both display + download)
+// ═══════════════════════════════════════════════════════════════════
+const PLUGIN_CODE = `// ╔══════════════════════════════════════════════════════════════╗
+// ║   AiCode Workflow Diagram — FigJam Plugin  (v2 - fixed)     ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+(async () => {
+  // ── 1. LOAD FONTS ──────────────────────────────────────────
+  try {
+    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+    await figma.loadFontAsync({ family: "Inter", style: "Bold" });
+  } catch(e) {
+    figma.closePlugin('Gagal load font: ' + e.message);
+    return;
+  }
+
+  // ── 2. HELPERS ─────────────────────────────────────────────
+  const rgb = h => ({
+    r: parseInt(h.slice(1,3),16)/255,
+    g: parseInt(h.slice(3,5),16)/255,
+    b: parseInt(h.slice(5,7),16)/255
+  });
+  const fill  = (h,op=1) => [{ type:'SOLID', color:rgb(h), opacity:op }];
+  const paint = h        => [{ type:'SOLID', color:rgb(h) }];
+
+  // Safe text helper — strips non-ASCII if Inter can't render the char
+  function makeText(chars, x, y, size, bold, color, alignH='LEFT') {
+    const t = figma.createText();
+    t.x = x; t.y = y;
+    t.fontName  = { family:'Inter', style: bold ? 'Bold' : 'Regular' };
+    t.fontSize  = size;
+    t.fills     = fill(color);
+    try {
+      t.characters = chars;
+    } catch(e) {
+      try { t.characters = chars.replace(/[^\\x20-\\x7E]/g, '?'); }
+      catch(e2) { t.characters = '?'; }
+    }
+    t.textAlignHorizontal = alignH;
+    return t;
+  }
+
+  const page = figma.currentPage;
+  const NH   = 52;   // node height
+
+  // ── 3. COLOR PALETTE ───────────────────────────────────────
+  const C = {
+    green:  { border:'#238636', ibg:'#0d2b0d', ico:'#3fb950', step:'#1a7f37' },
+    blue:   { border:'#1f6feb', ibg:'#081525', ico:'#58a6ff', step:'#1158c7' },
+    purple: { border:'#8957e5', ibg:'#150b22', ico:'#bc8cff', step:'#6e40c9' },
+    orange: { border:'#d97706', ibg:'#1a0e02', ico:'#fbbf24', step:'#b45309' },
+    pink:   { border:'#db2777', ibg:'#1a0511', ico:'#f472b6', step:'#be185d' },
+    teal:   { border:'#0e7490', ibg:'#041318', ico:'#22d3ee', step:'#0c6177' },
+    red:    { border:'#f85149', ibg:'#1c0808', ico:'#f85149', step:'#b91c1c' },
+  };
+
+  // ── 4. NODE DATA  (ic = 2 ASCII chars shown in icon box) ───
+  const NODES = [
+    // MODE LATIHAN
+    { id:'lt-open',   x:106,  y:105, w:165, c:'green',  s:1,    ic:'BK', t:'Buka Soal',           u:'Baca deskripsi & starter code' },
+    { id:'lt-edit',   x:285,  y:105, w:165, c:'green',  s:2,    ic:'ED', t:'Editor Kode',          u:'Tulis & edit solusi'            },
+    { id:'lt-run',    x:464,  y:105, w:170, c:'green',  s:3,    ic:'RN', t:'Jalankan Kode',        u:'Ulang sesering apapun'          },
+    { id:'lt-result', x:1058, y:105, w:192, c:'green',  s:4,    ic:'HS', t:'Lihat Output',         u:'Test result & skor'             },
+    { id:'lt-retry',  x:1270, y:105, w:190, c:'green',  s:null, ic:'UL', t:'Coba Lagi / Ubah',     u:'Tanpa batas, riwayat tersimpan' },
+    // LAYANAN SERVER
+    { id:'n-sec',     x:618,  y:262, w:182, c:'orange', s:null, ic:'SK', t:'Cek Keamanan',         u:'Filter perintah berbahaya'      },
+    { id:'n-exec',    x:822,  y:262, w:210, c:'orange', s:null, ic:'EX', t:'Code Executor',        u:'Sandbox aman + test cases',     ext:1 },
+    // MODE UJIAN
+    { id:'ej-open',   x:106,  y:375, w:165, c:'blue',   s:1,    ic:'BK', t:'Buka Soal',            u:'Identitas tercatat'             },
+    { id:'ej-edit',   x:285,  y:375, w:165, c:'blue',   s:2,    ic:'ED', t:'Editor Kode',          u:'Semua percobaan disimpan'       },
+    { id:'ej-run',    x:464,  y:375, w:170, c:'blue',   s:3,    ic:'RN', t:'Jalankan Kode',        u:'Coba sebelum mengumpulkan'      },
+    { id:'ej-result', x:1058, y:375, w:192, c:'blue',   s:4,    ic:'HS', t:'Lihat Hasil + Skor',   u:'Keputusan: revisi atau kumpul?' },
+    { id:'ej-submit', x:1270, y:375, w:192, c:'blue',   s:5,    ic:'KR', t:'Kirim ke Guru',        u:'Hanya 1x kesempatan'            },
+    { id:'ej-locked', x:1481, y:375, w:190, c:'red',    s:null, ic:'LK', t:'Kode Terkunci',        u:'Menunggu penilaian guru'        },
+    // BANTUAN AI
+    { id:'n-hint',    x:106,  y:557, w:194, c:'purple', s:null, ic:'AI', t:'Minta Bantuan AI',     u:'Klik tombol "Bantuan"'          },
+    { id:'n-gem',     x:318,  y:557, w:210, c:'pink',   s:null, ic:'GM', t:'Google Gemini AI',     u:'Analisis kode & error',         ext:1 },
+    { id:'n-fb',      x:548,  y:557, w:220, c:'purple', s:null, ic:'FB', t:'Tampilkan Feedback',   u:'Diagnosis + saran + materi'     },
+    // GURU
+    { id:'tc-rep',    x:106,  y:668, w:188, c:'blue',   s:6,    ic:'LP', t:'Dashboard Laporan',    u:'Analitik kelas lengkap'         },
+    { id:'tc-rev',    x:344,  y:668, w:196, c:'blue',   s:7,    ic:'RV', t:'Review Kode Siswa',    u:'Timeline & semua percobaan'     },
+    { id:'tc-grd',    x:590,  y:668, w:165, c:'blue',   s:8,    ic:'NL', t:'Beri Nilai',            u:'Input ke Gradebook'             },
+    { id:'tc-ovr',    x:815,  y:668, w:208, c:'purple', s:9,    ic:'KS', t:'Koreksi Feedback AI',  u:'Override & tandai contoh'       },
+    { id:'tc-ex',     x:1081, y:668, w:208, c:'pink',   s:10,   ic:'CT', t:'Jadikan Contoh AI',    u:'AI makin pintar'                },
+    // ADMIN / INFRA
+    { id:'ad-cfg',    x:106,  y:780, w:185, c:'purple', s:null, ic:'CF', t:'Konfigurasi Sistem',   u:'Settings plugin Moodle'         },
+    { id:'ad-key',    x:348,  y:762, w:188, c:'pink',   s:null, ic:'KY', t:'Gemini API Key',       u:'Model & kunci akses AI'         },
+    { id:'ad-url',    x:348,  y:818, w:188, c:'orange', s:null, ic:'UR', t:'URL & Batas Harian',   u:'Executor URL + limit AI/hari'   },
+    { id:'ad-db',     x:588,  y:780, w:192, c:'teal',   s:null, ic:'DB', t:'Database Moodle',      u:'Simpan semua data aktivitas',   ext:1 },
+    { id:'ad-gb',     x:836,  y:780, w:192, c:'teal',   s:null, ic:'GB', t:'Gradebook Moodle',     u:'Rekap & ekspor nilai'           },
+  ];
+
+  // ── 5. SECTION DATA ─────────────────────────────────────────
+  const SECS = [
+    { id:'sec-lt',  x:50,  y:83,  w:1620, h:155, col:'#238636', op:.05, solid:false, rx:14, lbl:'MODE LATIHAN',            lc:'#3fb950' },
+    { id:'sec-sh',  x:610, y:255, w:440,  h:82,  col:'#d97706', op:.08, solid:true,  rx:10, lbl:'LAYANAN SERVER (BERSAMA)',lc:'#fbbf24' },
+    { id:'sec-ej',  x:50,  y:355, w:1620, h:168, col:'#1f6feb', op:.05, solid:false, rx:14, lbl:'MODE UJIAN',               lc:'#58a6ff' },
+    { id:'sec-ai',  x:50,  y:547, w:880,  h:82,  col:'#8957e5', op:.05, solid:false, rx:12, lbl:'BANTUAN AI (KEDUA MODE)', lc:'#bc8cff' },
+    { id:'sec-tc',  x:50,  y:652, w:1280, h:82,  col:'#1f6feb', op:.04, solid:false, rx:12, lbl:'ALUR GURU',                lc:'#58a6ff' },
+    { id:'sec-adm', x:50,  y:756, w:500,  h:90,  col:'#8957e5', op:.04, solid:false, rx:12, lbl:'KONFIGURASI ADMIN',        lc:'#bc8cff' },
+    { id:'sec-inf', x:568, y:756, w:570,  h:90,  col:'#0e7490', op:.04, solid:false, rx:12, lbl:'PENYIMPANAN DATA',         lc:'#22d3ee' },
+  ];
+
+  // ── 6. ACTOR DATA ───────────────────────────────────────────
+  const ACTORS = [
+    { id:'as1', ic:'S', x:16, y:104, n:'Siswa', fill:'#071f07', stroke:'#238636', nc:'#3fb950' },
+    { id:'as2', ic:'S', x:16, y:375, n:'Siswa', fill:'#071119', stroke:'#1f6feb', nc:'#58a6ff' },
+    { id:'at',  ic:'G', x:16, y:668, n:'Guru',  fill:'#071119', stroke:'#1f6feb', nc:'#58a6ff' },
+    { id:'aa',  ic:'A', x:16, y:776, n:'Admin', fill:'#130b22', stroke:'#8957e5', nc:'#bc8cff' },
+  ];
+
+  // ── 7. CONNECTION DATA ──────────────────────────────────────
+  const CONNS = [
+    // Actors → first nodes
+    { f:'as1', t:'lt-open',   col:'#3fb950' },
+    { f:'as2', t:'ej-open',   col:'#58a6ff' },
+    { f:'at',  t:'tc-rep',    col:'#58a6ff' },
+    { f:'aa',  t:'ad-cfg',    col:'#bc8cff' },
+    // Mode Latihan main
+    { f:'lt-open',   t:'lt-edit',   col:'#3fb950' },
+    { f:'lt-edit',   t:'lt-run',    col:'#3fb950' },
+    { f:'lt-result', t:'lt-retry',  col:'#3fb950' },
+    { f:'lt-retry',  t:'lt-edit',   col:'#3fb950', dash:[6,3] },
+    // Shared server (both modes -> security -> executor -> results)
+    { f:'lt-run', t:'n-sec',      col:'#fbbf24' },
+    { f:'ej-run', t:'n-sec',      col:'#fbbf24' },
+    { f:'n-sec',  t:'n-exec',     col:'#fbbf24' },
+    { f:'n-exec', t:'lt-result',  col:'#3fb950' },
+    { f:'n-exec', t:'ej-result',  col:'#58a6ff' },
+    // Mode Ujian main
+    { f:'ej-open',   t:'ej-edit',   col:'#58a6ff' },
+    { f:'ej-edit',   t:'ej-run',    col:'#58a6ff' },
+    { f:'ej-result', t:'ej-submit', col:'#58a6ff' },
+    { f:'ej-submit', t:'ej-locked', col:'#f85149' },
+    // AI Hint
+    { f:'lt-edit', t:'n-hint', col:'#bc8cff', dash:[5,3] },
+    { f:'ej-edit', t:'n-hint', col:'#bc8cff', dash:[5,3] },
+    { f:'n-hint',  t:'n-gem',  col:'#bc8cff' },
+    { f:'n-gem',   t:'n-fb',   col:'#f472b6' },
+    // Teacher flow
+    { f:'tc-rep', t:'tc-rev', col:'#58a6ff' },
+    { f:'tc-rev', t:'tc-grd', col:'#58a6ff' },
+    { f:'tc-grd', t:'tc-ovr', col:'#58a6ff' },
+    { f:'tc-ovr', t:'tc-ex',  col:'#bc8cff' },
+    { f:'tc-ex',  t:'n-gem',  col:'#f472b6', dash:[7,4] },
+    // Data flows
+    { f:'ej-submit', t:'ad-db', col:'#22d3ee', dash:[5,3] },
+    { f:'tc-grd',    t:'ad-gb', col:'#22d3ee', dash:[5,3] },
+    // Admin config
+    { f:'ad-cfg', t:'ad-key', col:'#f472b6', dash:[4,2] },
+    { f:'ad-cfg', t:'ad-url', col:'#fbbf24', dash:[4,2] },
+    { f:'ad-key', t:'n-gem',  col:'#f472b6', dash:[6,3] },
+    { f:'ad-url', t:'n-exec', col:'#fbbf24', dash:[6,3] },
+  ];
+
+  // ── 8. BUILD DIAGRAM ────────────────────────────────────────
+  const all = [];   // all top-level nodes
+  const nm  = {};   // nodeMap: id → figma node
+
+  // 8a. Background
+  const bgRect = figma.createRectangle();
+  bgRect.x = 0; bgRect.y = 0; bgRect.resize(1720, 900);
+  bgRect.fills = fill('#0d1117');
+  bgRect.name  = '_background';
+  all.push(bgRect);
+
+  // 8b. Title  (ASCII-safe: no fancy Unicode in title)
+  all.push(makeText('Alur Kerja Plugin AiCode', 50, 28, 22, true, '#58a6ff'));
+  all.push(makeText('Mode Latihan (bebas berulang) & Mode Ujian (1x pengiriman final) — Plugin AiCode, Moodle UNNES', 50, 58, 11, false, '#8b949e'));
+
+  // 8c. Sections
+  for (const s of SECS) {
+    const r = figma.createRectangle();
+    r.x = s.x; r.y = s.y; r.resize(s.w, s.h);
+    r.cornerRadius = s.rx;
+    r.fills   = fill(s.col, s.op);
+    r.strokes = paint(s.col);
+    r.strokeWeight  = 1;
+    r.dashPattern   = s.solid ? [] : [7, 4];
+    r.name = s.id;
+    all.push(r);
+
+    const lpill = figma.createRectangle();
+    lpill.x = s.x+14; lpill.y = s.y+9;
+    lpill.resize(s.lbl.length * 6.6 + 26, 18);
+    lpill.cornerRadius = 4;
+    lpill.fills = fill(s.col, .20);
+    lpill.name  = s.id + '-label-bg';
+    all.push(lpill);
+
+    all.push(makeText(s.lbl, s.x+24, s.y+12, 10, true, s.lc));
+  }
+
+  // 8d. Nodes
+  for (const n of NODES) {
+    try {
+      const c   = C[n.c];
+      const els = [];
+
+      // Card background
+      const card = figma.createRectangle();
+      card.x = n.x; card.y = n.y; card.resize(n.w, NH);
+      card.cornerRadius = 10;
+      card.fills   = fill('#161b22');
+      card.strokes = paint(c.border);
+      card.strokeWeight = 1;
+      if (n.ext) card.dashPattern = [5, 3];
+      els.push(card);
+
+      // Icon background (colored square)
+      const ibg = figma.createRectangle();
+      ibg.x = n.x+7; ibg.y = n.y+9; ibg.resize(34, 34);
+      ibg.cornerRadius = 7;
+      ibg.fills = fill(c.ibg);
+      els.push(ibg);
+
+      // Icon text — 2-char ASCII abbreviation, always safe
+      const icT = makeText(n.ic, n.x+10, n.y+17, 12, true, c.ico);
+      els.push(icT);
+
+      // Title + subtitle
+      els.push(makeText(n.t, n.x+50, n.y+11, 12, true,  '#e6edf3'));
+      els.push(makeText(n.u, n.x+50, n.y+29, 10, false, '#8b949e'));
+
+      // Step badge
+      if (n.s) {
+        const bc = figma.createEllipse();
+        bc.x = n.x-9; bc.y = n.y-9; bc.resize(18, 18);
+        bc.fills   = fill(c.step);
+        bc.strokes = paint('#0d1117');
+        bc.strokeWeight = 2;
+        els.push(bc);
+        els.push(makeText(String(n.s), n.x-5, n.y-6, 8, true, '#ffffff', 'CENTER'));
+      }
+
+      const g = figma.group(els, page);
+      g.name   = n.id;
+      nm[n.id] = g;
+      all.push(g);
+    } catch(nodeErr) {
+      // If a node fails, log and continue so connectors for other nodes still work
+      console.error('Node error [' + n.id + ']:', nodeErr.message);
+    }
+  }
+
+  // 8e. Actors  (circle + label + initial letter inside)
+  for (const a of ACTORS) {
+    try {
+      const circle = figma.createEllipse();
+      circle.x = a.x; circle.y = a.y; circle.resize(52, 52);
+      circle.fills   = fill(a.fill);
+      circle.strokes = paint(a.stroke);
+      circle.strokeWeight = 2;
+
+      const initT = makeText(a.ic, a.x+18, a.y+16, 16, true, a.nc, 'CENTER');
+      const nameT = makeText(a.n, a.x+6, a.y+58, 11, true, a.nc, 'CENTER');
+      nameT.resize(40, 20);
+
+      const g = figma.group([circle, initT, nameT], page);
+      g.name   = a.id;
+      nm[a.id] = g;
+      all.push(g);
+    } catch(actErr) {
+      console.error('Actor error [' + a.id + ']:', actErr.message);
+    }
+  }
+
+  // 8f. Connectors
+  let connCount = 0;
+  for (const c of CONNS) {
+    if (!nm[c.f] || !nm[c.t]) continue;
+    try {
+      const conn = figma.createConnector();
+      conn.connectorStart = { endpointNodeId: nm[c.f].id, magnet: 'AUTO' };
+      conn.connectorEnd   = { endpointNodeId: nm[c.t].id, magnet: 'AUTO' };
+      conn.strokeWeight   = c.w || 1.8;
+      conn.strokes        = paint(c.col);
+      conn.connectorEndStrokeCap   = 'ARROW_EQUILATERAL';
+      conn.connectorStartStrokeCap = 'NONE';
+      conn.connectorLineType       = 'ELBOWED';
+      if (c.dash) conn.dashPattern = c.dash;
+      conn.strokeOpacity = c.dash ? 0.65 : 0.9;
+      conn.name = c.f + ' -> ' + c.t;
+      all.push(conn);
+      connCount++;
+    } catch(connErr) {
+      console.error('Connector error [' + c.f + '->' + c.t + ']:', connErr.message);
+    }
+  }
+
+  // 8g. Annotations
+  function makeNote(x, y, w, h, title, body, borderCol) {
+    const bg = figma.createRectangle();
+    bg.x = x; bg.y = y; bg.resize(w, h);
+    bg.cornerRadius = 9;
+    bg.fills   = fill('#1c2128');
+    bg.strokes = paint(borderCol);
+    bg.strokeWeight = 1;
+    const t1 = makeText(title, x+12, y+10, 10, true,  '#c9d1d9');
+    const t2 = makeText(body,  x+12, y+26, 9.5, false, '#8b949e');
+    const g = figma.group([bg, t1, t2], page);
+    g.name = 'note-' + title.slice(0,10);
+    return g;
+  }
+
+  all.push(makeNote(1481, 105, 192, 52, 'Bebas Berulang',    'Revisi & ulangi sesering yang diinginkan', '#30363d'));
+  all.push(makeNote(1481, 298, 192, 54, '! Hanya 1 Kali!',   'Setelah kirim, kode tidak bisa diubah',    '#f85149'));
+  all.push(makeNote(792,  557, 194, 52, 'Cache & Batas/Hari','Hasil AI disimpan. Dibatasi X req/hari',   '#30363d'));
+
+  // 8h. Legend
+  const lgx = 1534, lgy = 668;
+  const lgBg = figma.createRectangle();
+  lgBg.x = lgx; lgBg.y = lgy; lgBg.resize(172, 200);
+  lgBg.cornerRadius = 12;
+  lgBg.fills = fill('#161b22');
+  lgBg.strokes = paint('#30363d');
+  lgBg.strokeWeight = 1;
+  const lgTitle = makeText('KETERANGAN', lgx+16, lgy+14, 10, true, '#8b949e');
+
+  const lgItems = [
+    { y:lgy+38, col:'#3fb950', lbl:'Alur Mode Latihan' },
+    { y:lgy+56, col:'#58a6ff', lbl:'Alur Mode Ujian'   },
+    { y:lgy+74, col:'#fbbf24', lbl:'Layanan server'     },
+    { y:lgy+92, col:'#bc8cff', lbl:'AI & Admin'          },
+    { y:lgy+110,col:'#22d3ee', lbl:'Data & Penyimpanan'  },
+    { y:lgy+128,col:'#484f58', lbl:'Alur konfigurasi'    },
+  ];
+  const lgEls = [lgBg, lgTitle];
+  for (const li of lgItems) {
+    const dot = figma.createRectangle();
+    dot.x = lgx+14; dot.y = li.y-4; dot.resize(22, 8);
+    dot.cornerRadius = 4;
+    dot.fills = fill(li.col);
+    lgEls.push(dot);
+    lgEls.push(makeText(li.lbl, lgx+44, li.y-5, 11, false, '#c9d1d9'));
+  }
+  lgEls.push(makeText('aicode-diagram — Moodle UNNES', lgx+14, lgy+178, 9, false, '#484f58'));
+
+  const lgGroup = figma.group(lgEls, page);
+  lgGroup.name = 'legend';
+  all.push(lgGroup);
+
+  // ── 9. ZOOM TO FIT ──────────────────────────────────────────
+  figma.currentPage.selection = all;
+  figma.viewport.scrollAndZoomIntoView(all);
+
+  figma.closePlugin('Diagram selesai! ' + connCount + ' koneksi dibuat.');
+
+})().catch(err => figma.closePlugin('Error: ' + err.message));
+`;
+
+// ─────────────────────────────────────────────
+// Display code in the pre block (escaped)
+document.getElementById('plugin-code').textContent = PLUGIN_CODE;
+
+const MANIFEST = `{
+  "name": "AiCode Diagram",
+  "id": "aicode-workflow-diagram",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figjam"]
+}`;
+
+function copyCode(sourceId, btnId) {
+  const text = sourceId === 'manifest-code' ? MANIFEST : PLUGIN_CODE;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(btnId);
+    const orig = btn.textContent;
+    btn.textContent = '✅ Tersalin!';
+    btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 2000);
+  });
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadPlugin()   { downloadFile(PLUGIN_CODE, 'code.js',        'text/javascript'); }
+function downloadManifest() { downloadFile(MANIFEST,    'manifest.json',  'application/json'); }
+</script>
+</body>
+</html>

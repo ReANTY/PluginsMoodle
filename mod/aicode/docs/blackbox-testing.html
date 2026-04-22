@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instrumen Uji Blackbox – Plugin AICode Moodle</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    background: #fff;
+    color: #000;
+    padding: 40px 56px;
+    font-size: 11pt;
+  }
+
+
+  /* ── LAMPIRAN LABEL ─────────────────────────────────────────────────── */
+  .lampiran-label {
+    font-weight: bold;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── JUDUL ──────────────────────────────────────────────────────────── */
+  .doc-title {
+    text-align: center;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+    line-height: 1.7;
+  }
+  .doc-title p {
+    font-weight: bold;
+    font-size: 12pt;
+    text-transform: uppercase;
+  }
+
+  /* ── INFO PENGISIAN ──────────────────────────────────────────────────── */
+  .info-block {
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 1;
+  }
+  .info-block table { font-size: 11pt; border: none; width: 100%; }
+  .info-block td   { border: none; padding: 2px 4px; vertical-align: top; }
+  .info-block td.lbl { width: 130px; white-space: nowrap; }
+  .info-block td.sep { width: 12px; text-align: center; }
+  .info-block ol { margin: 0; padding-left: 20px; line-height: 1.8; }
+
+  /* ── TABLE ──────────────────────────────────────────────────────────── */
+  .table-wrap { position: relative; z-index: 1; }
+
+  table.uji {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5pt;
+    font-family: 'Times New Roman', Times, serif;
+  }
+  table.uji th,
+  table.uji td {
+    border: 1px solid #000;
+    padding: 5px 7px;
+    vertical-align: top;
+  }
+  table.uji thead th {
+    text-align: center;
+    font-weight: bold;
+    vertical-align: middle;
+  }
+  table.uji tr.role-row td {
+    text-align: center;
+    font-style: italic;
+    padding: 4px 7px;
+  }
+  table.uji td.col-no,
+  table.uji th.col-no  { width: 30px;  text-align: center; white-space: nowrap; }
+  table.uji td.col-nama { width: 128px; font-style: italic; }
+  table.uji td.col-skenario  { width: 22%; }
+  table.uji td.col-harapan   { width: 24%; }
+  table.uji td.col-pengujian { width: 16%; }
+  table.uji td.col-check     { width: 52px; text-align: center; }
+
+  /* ── KESIMPULAN ─────────────────────────────────────────────────────── */
+  .kesimpulan {
+    margin-top: 28px;
+    position: relative;
+    z-index: 1;
+    line-height: 1.8;
+  }
+  .kesimpulan h3 { font-size: 11pt; margin-bottom: 6px; }
+  .kesimpulan ol { padding-left: 22px; }
+  .kesimpulan ol li { margin-bottom: 2px; }
+  .catatan-wrap {
+    margin-top: 10px;
+    font-size: 10pt;
+    font-style: italic;
+  }
+  .kritik-box {
+    margin-top: 16px;
+    position: relative;
+    z-index: 1;
+  }
+  .kritik-box p { font-size: 11pt; margin-bottom: 6px; }
+  .kritik-lines { margin-top: 4px; }
+  .kritik-lines div {
+    border-bottom: 1px solid #000;
+    height: 22px;
+    margin-bottom: 2px;
+  }
+
+  /* ── SIGNATURE ──────────────────────────────────────────────────────── */
+  .signature-block {
+    margin-top: 32px;
+    display: flex;
+    justify-content: flex-end;
+    position: relative;
+    z-index: 1;
+  }
+  .signature-inner { text-align: center; width: 240px; font-size: 11pt; }
+  .signature-inner .sig-place { margin-bottom: 68px; }
+  .signature-inner .sig-name  { font-weight: bold; border-top: 1px solid #000; padding-top: 4px; }
+  .signature-inner .sig-nip   { font-size: 10pt; }
+
+  /* ── FOOTER ─────────────────────────────────────────────────────────── */
+  .doc-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 9pt;
+    color: #555;
+    position: relative;
+    z-index: 1;
+  }
+
+  @media print {
+    body { padding: 20px 36px; }
+    body::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════ LAMPIRAN LABEL ════════════════════════════════════════ -->
+<p class="lampiran-label">Lampiran 3 Instrumen Uji <em>Blackbox</em></p>
+
+<!-- ════════════ JUDUL ══════════════════════════════════════════════════ -->
+<div class="doc-title">
+  <p>Pengujian Fungsionalitas Pengembangan Fitur Moodle</p>
+  <p>Latihan Pemrograman Interaktif dengan Umpan Balik Cerdas</p>
+  <p>Berbasis <em>Large Language Model</em></p>
+  <p>Melalui Uji <em>Blackbox Testing</em></p>
+</div>
+
+<!-- ════════════ INFO PENGISIAN ════════════════════════════════════════ -->
+<div class="info-block">
+  <table>
+    <tr>
+      <td class="lbl">Tujuan</td>
+      <td class="sep">:</td>
+      <td>Uji Fungsionalitas <em>Plugin</em> AICode Moodle</td>
+    </tr>
+    <tr>
+      <td class="lbl">Cara Pengisian</td>
+      <td class="sep">:</td>
+      <td>
+        Tuliskan hasil pengujian yang diperoleh dari penggunaan plugin pada kolom
+        "Hasil Pengujian", kemudian beri tanda centang (✓) pada kolom "Sesuai" atau "Tidak"
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- ════════════ TABEL ══════════════════════════════════════════════════ -->
+<div class="table-wrap">
+<table class="uji">
+  <thead>
+    <tr>
+      <th class="col-no"  rowspan="2">No</th>
+      <th                 rowspan="2" style="width:128px">Nama Aktivitas</th>
+      <th                 rowspan="2">Skenario</th>
+      <th                 rowspan="2">Hasil yang Diharapkan</th>
+      <th                 rowspan="2">Hasil Pengujian</th>
+      <th colspan="2" style="text-align:center">Hasil</th>
+    </tr>
+    <tr>
+      <th class="col-check">Sesuai</th>
+      <th class="col-check">Tidak</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- ══ ROLE MAHASISWA ═══════════════════════════════════════════ -->
+    <tr class="role-row">
+      <td colspan="7"><em>Role Mahasiswa</em></td>
+    </tr>
+
+    <!-- 1. Menjalankan Kode -->
+    <tr>
+      <td class="col-no">1</td>
+      <td class="col-nama">Fitur menjalankan kode</td>
+      <td class="col-skenario">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Mahasiswa menuliskan kode yang benar, kemudian menekan tombol "Jalankan"</li>
+          <li>Mahasiswa menuliskan kode yang mengandung kesalahan penulisan, kemudian menekan "Jalankan"</li>
+          <li>Mahasiswa menuliskan kode yang mengandung perintah berbahaya, kemudian menekan "Jalankan"</li>
+        </ol>
+      </td>
+      <td class="col-harapan">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Kode berhasil dijalankan dan menampilkan hasil yang sesuai</li>
+          <li>Sistem menampilkan pesan <em>error</em> yang menjelaskan jenis dan letak kesalahannya</li>
+          <li>Kode diblokir secara otomatis dan pengguna diberi tahu alasan pemblokiran tersebut</li>
+        </ol>
+      </td>
+      <td class="col-pengujian"></td>
+      <td class="col-check"></td>
+      <td class="col-check"></td>
+    </tr>
+
+    <!-- 2. Bantuan AI (AI Hint) -->
+    <tr>
+      <td class="col-no">2</td>
+      <td class="col-nama">Fitur bantuan AI (<em>AI Hint</em>)</td>
+      <td class="col-skenario">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Mahasiswa membuka soal mode latihan, lalu memperhatikan tombol "AI Hint"</li>
+          <li>Mahasiswa membuka soal mode ujian, lalu memperhatikan tombol "AI Hint"</li>
+          <li>Mahasiswa menekan tombol "AI Hint" setelah kode gagal dijalankan</li>
+          <li>Mahasiswa meminta analisis AI untuk kode yang sama untuk kedua kalinya</li>
+          <li>Mahasiswa telah mencapai batas penggunaan harian, kemudian menekan "AI Hint" kembali</li>
+          <li>Mahasiswa menjalankan kode berulang kali tanpa menekan "AI Hint"</li>
+          <li>Mahasiswa menulis komentar berisi informasi pribadi di dalam kode, kemudian meminta bantuan AI</li>
+        </ol>
+      </td>
+      <td class="col-harapan">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Tombol "AI Hint" ditampilkan karena soal dalam mode latihan</li>
+          <li>Tombol "AI Hint" tidak ditampilkan karena soal dalam mode ujian</li>
+          <li>Sistem menampilkan penjelasan kesalahan dan petunjuk perbaikan</li>
+          <li>Sistem merespons lebih cepat menggunakan hasil analisis yang sudah tersimpan sebelumnya</li>
+          <li>Sistem menolak permintaan dan memberi tahu kapan batas akan direset</li>
+          <li>Kuota bantuan AI harian tidak berkurang meskipun kode sudah dijalankan berkali-kali</li>
+          <li>Komentar dihapus secara otomatis sebelum kode dikirimkan ke layanan AI</li>
+        </ol>
+      </td>
+      <td class="col-pengujian"></td>
+      <td class="col-check"></td>
+      <td class="col-check"></td>
+    </tr>
+
+    <!-- 3. Mengirim Kode ke Guru -->
+    <tr>
+      <td class="col-no">3</td>
+      <td class="col-nama">Fitur mengirim kode ke guru</td>
+      <td class="col-skenario">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Mahasiswa menekan tombol "Kirim ke Guru" pada soal ujian untuk pertama kalinya</li>
+          <li>Mahasiswa menekan tombol "Kirim ke Guru" untuk kedua kalinya pada soal ujian yang sama</li>
+          <li>Mahasiswa mengirim kode ke guru berkali-kali pada soal latihan</li>
+        </ol>
+      </td>
+      <td class="col-harapan">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Tombol "Kirim ke Guru" berfungsi dengan baik dan pengiriman berhasil tersimpan di database</li>
+          <li>Pengiriman ditolak dan muncul pemberitahuan bahwa kode sudah pernah dikirim</li>
+          <li>Semua pengiriman diterima tanpa ada pembatasan jumlah</li>
+        </ol>
+      </td>
+      <td class="col-pengujian"></td>
+      <td class="col-check"></td>
+      <td class="col-check"></td>
+    </tr>
+
+    <!-- 4. Riwayat Percobaan -->
+    <tr>
+      <td class="col-no">4</td>
+      <td class="col-nama">Fitur riwayat percobaan</td>
+      <td class="col-skenario">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Mahasiswa yang baru pertama kali membuka soal membuka halaman riwayat</li>
+          <li>Mahasiswa yang sudah banyak mencoba membuka halaman riwayat (lebih dari 20 percobaan)</li>
+          <li>Mahasiswa memilih salah satu percobaan dari daftar riwayat</li>
+        </ol>
+      </td>
+      <td class="col-harapan">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Halaman riwayat percobaan ditampilkan dalam keadaan kosong</li>
+          <li>Riwayat menampilkan 20 percobaan terakhir secara berurutan dari yang paling lama hingga paling baru</li>
+          <li>Kode dari percobaan yang dipilih langsung ditampilkan pada <em>editor</em></li>
+        </ol>
+      </td>
+      <td class="col-pengujian"></td>
+      <td class="col-check"></td>
+      <td class="col-check"></td>
+    </tr>
+
+    <!-- ══ ROLE GURU ════════════════════════════════════════════════ -->
+    <tr class="role-row">
+      <td colspan="7"><em>Role Guru / Dosen</em></td>
+    </tr>
+
+    <!-- 5. Fitur Guru -->
+    <tr>
+      <td class="col-no">5</td>
+      <td class="col-nama">Fitur pengelolaan aktivitas dan penilaian</td>
+      <td class="col-skenario">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Guru membuat aktivitas baru pada kursus Moodle menggunakan plugin ini</li>
+          <li>Guru membuka halaman laporan pada aktivitas yang sudah memiliki percobaan mahasiswa</li>
+          <li>Guru memberikan nilai kepada salah satu mahasiswa melalui form penilaian</li>
+          <li>Guru membuka detail percobaan mahasiswa dan memberikan rating untuk saran AI yang diberikan</li>
+          <li>Guru mengisi form koreksi untuk memperbaiki saran AI yang kurang tepat</li>
+        </ol>
+      </td>
+      <td class="col-harapan">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Guru dapat membuat aktivitas untuk latihan JavaScript maupun ujian JavaScript sesuai kebutuhan</li>
+          <li>Laporan lengkap seluruh percobaan mahasiswa ditampilkan beserta kode, hasil eksekusi, peringatan keamanan, dan saran dari AI</li>
+          <li>Nilai tersimpan dan langsung muncul di daftar nilai (<em>Gradebook</em>) Moodle</li>
+          <li>Rating berhasil disimpan sebagai umpan balik kualitas saran AI</li>
+          <li>Koreksi berhasil disimpan dan digunakan sebagai panduan bagi AI agar memberikan saran yang lebih baik pada mahasiswa berikutnya</li>
+        </ol>
+      </td>
+      <td class="col-pengujian"></td>
+      <td class="col-check"></td>
+      <td class="col-check"></td>
+    </tr>
+
+    <!-- ══ ROLE ADMINISTRATOR ════════════════════════════════════════ -->
+    <tr class="role-row">
+      <td colspan="7"><em>Role Site Administrator</em></td>
+    </tr>
+
+    <!-- 6. Keamanan Akses & Konfigurasi -->
+    <tr>
+      <td class="col-no">6</td>
+      <td class="col-nama">Keamanan akses dan konfigurasi layanan AI</td>
+      <td class="col-skenario">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Pengguna yang belum masuk (<em>login</em>) mencoba mengakses fitur plugin</li>
+          <li>Mahasiswa mencoba mengakses soal dari kelas yang tidak diikutinya</li>
+          <li>Administrator belum mengisi API key layanan AI, kemudian mahasiswa menekan tombol "AI Hint"</li>
+        </ol>
+      </td>
+      <td class="col-harapan">
+        <ol style="padding-left:16px;margin:0;line-height:1.6">
+          <li>Akses ditolak dan pengguna diarahkan ke halaman <em>login</em></li>
+          <li>Akses ditolak dan muncul pesan bahwa pengguna tidak memiliki izin</li>
+          <li>Mahasiswa melihat pesan pemberitahuan yang jelas bahwa layanan AI belum aktif, bukan pesan <em>error</em> teknis</li>
+        </ol>
+      </td>
+      <td class="col-pengujian"></td>
+      <td class="col-check"></td>
+      <td class="col-check"></td>
+    </tr>
+
+  </tbody>
+</table>
+</div>
+
+<!-- ════════════ KESIMPULAN ════════════════════════════════════════════ -->
+<div class="kesimpulan">
+  <h3>Kesimpulan :</h3>
+  <p style="margin-bottom:6px">Plugin AICode dinyatakan* :</p>
+  <ol>
+    <li>Layak digunakan tanpa revisi</li>
+    <li>Layak digunakan dengan masukan dan saran</li>
+    <li>Tidak layak dipergunakan</li>
+  </ol>
+  <p class="catatan-wrap">*(Mohon melingkari nomor sesuai dengan kesimpulan Anda)</p>
+</div>
+
+<!-- ════════════ KRITIK DAN MASUKAN ════════════════════════════════════ -->
+<div class="kritik-box">
+  <p>Kritik dan masukan :</p>
+  <div class="kritik-lines">
+    <div></div><div></div><div></div><div></div><div></div>
+  </div>
+</div>
+
+<!-- ════════════ TANDA TANGAN ═══════════════════════════════════════════ -->
+<div class="signature-block">
+  <div class="signature-inner">
+    <p class="sig-place">Semarang, .......................... 2026</p>
+    <p>Penguji,</p>
+    <br>
+    <p class="sig-name">( ________________________ )</p>
+    <p class="sig-nip">NIP. ______________________</p>
+  </div>
+</div>
+
+<!-- ════════════ FOOTER ═════════════════════════════════════════════════ -->
+<div class="doc-footer">
+  Instrumen Uji Blackbox – Plugin AICode v1.6.1 &nbsp;|&nbsp; Moodle 5.x &nbsp;|&nbsp; 14 April 2026
+</div>
+
+</body>
+</html>

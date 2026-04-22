@@ -49,5 +49,13 @@ $functions = [
         'ajax'        => true,
         'loginrequired' => true,
     ],
+    'mod_aicode_get_run_history' => [
+        'classname'   => 'mod_aicode\external\get_run_history',
+        'methodname'  => 'execute',
+        'description' => 'Get student run history from database',
+        'type'        => 'read',
+        'ajax'        => true,
+        'loginrequired' => true,
+    ],
 ];
 

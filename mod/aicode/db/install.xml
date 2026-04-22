@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/aicode/db" VERSION="2026030200" COMMENT="XMLDB file for Moodle mod/aicode"
+<XMLDB PATH="mod/aicode/db" VERSION="2026041401" COMMENT="XMLDB file for Moodle mod/aicode"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -39,8 +39,11 @@
         <FIELD NAME="code_hash" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="is_anonymous" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="result_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Short execution result"/>
-        <FIELD NAME="used_hints_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Array of hint levels used"/>
+        <FIELD NAME="used_hints_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Array of hint usage timestamps"/>
         <FIELD NAME="ai_feedback_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="AI analysis result"/>
+        <FIELD NAME="security_flags" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON security check result (risk_level, violations)"/>
+        <FIELD NAME="ai_requested_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Unix timestamp when student clicked AI Hint; NULL means no AI request on this attempt"/>
+        <FIELD NAME="teacher_review_requested" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 when this attempt was submitted to teacher for review (exam mode)"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
@@ -51,21 +54,9 @@
       <INDEXES>
         <INDEX NAME="code_hash" UNIQUE="false" FIELDS="code_hash"/>
         <INDEX NAME="timecreated" UNIQUE="false" FIELDS="timecreated"/>
+        <INDEX NAME="userid_ai_requested_at" UNIQUE="false" FIELDS="userid, ai_requested_at"/>
+        <INDEX NAME="problemid_userid_teacher_review" UNIQUE="false" FIELDS="problemid, userid, teacher_review_requested"/>
       </INDEXES>
-    </TABLE>
-    <TABLE NAME="aicode_materials" COMMENT="Recommended learning materials">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="url" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
-        <FIELD NAME="type" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="doc" SEQUENCE="false" COMMENT="video, doc, quiz"/>
-        <FIELD NAME="tags_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Array of topic tags"/>
-        <FIELD NAME="moodle_resource_id" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
-        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-      </KEYS>
     </TABLE>
     <TABLE NAME="aicode_cache" COMMENT="Caches AI responses for repeated queries">
       <FIELDS>
@@ -87,7 +78,9 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="teacherid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="corrected_feedback_json" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="corrected_feedback_json" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Structured correction: notes, rating, corrected_diagnosis, corrected_hints, corrected_suggested_fix, use_as_example"/>
+        <FIELD NAME="feedback_rating" TYPE="int" LENGTH="1" NOTNULL="false" SEQUENCE="false" COMMENT="Teacher rating of original AI feedback quality, 1-5"/>
+        <FIELD NAME="use_as_example" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether to inject this correction as a few-shot example into future AI prompts"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>

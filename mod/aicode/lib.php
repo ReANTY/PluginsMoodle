@@ -226,13 +226,57 @@ function aicode_update_grades($aicode, $userid = 0, $nullifnone = true) {
     global $CFG, $DB;
     require_once($CFG->libdir . '/gradelib.php');
 
-    if ($userid != 0) {
-        // Update specific user grade.
-        $grade = null;
-        // TODO: Implement grade calculation based on attempts.
-        // For now, we'll just update the grade item without specific grades.
+    aicode_grade_item_update($aicode, null);
+}
+
+/**
+ * Add module-specific items to the activity secondary navigation.
+ * The "Laporan Guru" link appears next to "Settings" for users with
+ * the mod/aicode:viewattempts capability.
+ *
+ * @param settings_navigation $settingsnav The Moodle settings navigation tree.
+ * @param navigation_node     $activitynode The activity node to attach items to.
+ */
+function aicode_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $activitynode = null) {
+    global $PAGE;
+
+    if (!$activitynode || !$PAGE->cm) {
+        return;
     }
 
-    aicode_grade_item_update($aicode);
+    $context = context_module::instance($PAGE->cm->id);
+
+    if (!has_capability('mod/aicode:viewattempts', $context)) {
+        return;
+    }
+
+    $url = new moodle_url('/mod/aicode/report.php', ['id' => $PAGE->cm->id]);
+    $activitynode->add(
+        'Laporan Guru',
+        $url,
+        navigation_node::TYPE_SETTING,
+        null,
+        'aicode_report',
+        new pix_icon('i/report', 'Laporan Guru')
+    );
+}
+
+/**
+ * Save or reset a single student's grade for an AICode problem.
+ *
+ * @param stdClass $aicode   The aicode record (must have ->id, ->course, ->name).
+ * @param int      $userid   The student's user ID.
+ * @param float|null $rawgrade Grade 0–100, or null to remove/reset the grade.
+ * @return int  Result of grade_update(): 0 = success, GRADE_UPDATE_FAILED etc.
+ */
+function aicode_set_user_grade(stdClass $aicode, int $userid, ?float $rawgrade): int {
+    global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    $gradeobj           = new stdClass();
+    $gradeobj->userid   = $userid;
+    $gradeobj->rawgrade = $rawgrade;
+
+    return grade_update('mod/aicode', $aicode->course, 'mod', 'aicode', $aicode->id, 0, [$userid => $gradeobj]);
 }
 

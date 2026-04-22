@@ -13,9 +13,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/* global monaco */
-
-define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notification) {
+define(["jquery", "core/ajax", "core/notification", "core/modal_factory", "core/modal_events"],
+function ($, Ajax, Notification, ModalFactory, ModalEvents) {
   let editor = null;
   let config = {};
   let cachedFeedback = null;
@@ -37,15 +36,62 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
   let historyItems = [];
   let expandedHistoryIndex = null;
 
+  // Problem panel state
+  let problemStats = { error: 0, warning: 0, info: 0 };
+  let previewLineOffset = 71;
+
+  // VS Code–style problem icons (inline SVG)
+  const PROB_ICON_ERROR = (
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<circle cx="8" cy="8" r="7.5" fill="#f14c4c"/>' +
+    '<line x1="5.5" y1="5.5" x2="10.5" y2="10.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>' +
+    '<line x1="10.5" y1="5.5" x2="5.5" y2="10.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>' +
+    '</svg>'
+  );
+  const PROB_ICON_WARN = (
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<path d="M8 2L14.5 13.5H1.5L8 2Z" fill="#cca700"/>' +
+    '<line x1="8" y1="7" x2="8" y2="10.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>' +
+    '<circle cx="8" cy="12.2" r="0.85" fill="white"/>' +
+    '</svg>'
+  );
+  const PROB_ICON_INFO = (
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<circle cx="8" cy="8" r="7.5" fill="#3794ff"/>' +
+    '<line x1="8" y1="7.5" x2="8" y2="11.5" stroke="white" stroke-width="1.6" stroke-linecap="round"/>' +
+    '<circle cx="8" cy="5.5" r="0.9" fill="white"/>' +
+    '</svg>'
+  );
+  const PROB_ICON_LOG = (
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<circle cx="8" cy="8" r="7.5" fill="#6c757d"/>' +
+    '<path d="M5.5 8h5M8.5 5.5l3 2.5-3 2.5" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>'
+  );
+
   /**
-   * Initialize textarea editor (no external library)
+   * Initialize editor and panels
    */
-  const initMonaco = function () {
+  const initEditor = function () {
     previewFrame = document.getElementById("aicode-preview-iframe");
     attachPreviewListener();
     initFallbackEditor();
     initHistoryPanel();
     setupEventHandlers();
+  };
+
+  /**
+   * Resolve course-module id from the current page URL (?id=N)
+   * @return {number|null}
+   */
+  const getCmIdFromUrl = function () {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const id = parseInt(params.get("id"), 10);
+      return Number.isInteger(id) && id > 0 ? id : null;
+    } catch (e) {
+      return null;
+    }
   };
 
   /**
@@ -322,6 +368,8 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     $("#aicode-reset-btn").on("click", handleReset);
     $("#aicode-submit-btn").on("click", handleSendToTeacher);
     $(document).on("click", ".aicode-history-item", handleHistoryItemClick);
+    $(document).on("click", ".aicode-problem-item[data-line]", handleProblemItemClick);
+
   };
   /**
    * Apply UI changes based on mode and role
@@ -350,13 +398,19 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
       if (data.type === "console") {
         const level = data.payload && data.payload.level ? data.payload.level : "log";
         const args = data.payload && data.payload.args ? data.payload.args : [];
-        appendConsole(`[${level}] ${args.join(" ")}`.trim());
+        const message = args.join(" ");
+        if (level === "warn" || level === "error") {
+          addProblem(level === "warn" ? "warning" : "error", message, null, null);
+        } else {
+          addOutput(level, message);
+        }
       }
 
       if (data.type === "error") {
         const message = data.payload && data.payload.message ? data.payload.message : "Error";
         const stack = data.payload && data.payload.stack ? data.payload.stack : "";
-        appendError([message, stack].filter(Boolean).join("\n"));
+        const loc = parseStackLocation(stack || message, true);
+        addProblem("error", message, loc ? loc.line : null, loc ? loc.col : null);
       }
     });
   };
@@ -424,17 +478,46 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
         }
 
         if (!result) {
-          appendError("Execution failed: empty result from executor.");
+          addProblem("error", "Execution failed: empty result from executor.", null, null);
+          return true;
+        }
+
+        // Security block from server-side security checker — do NOT trigger AI analysis.
+        if (result.security_blocked === true) {
+          var riskLabels = { critical: "Kritis", high: "Tinggi", medium: "Sedang", low: "Rendah" };
+          var riskLabel  = riskLabels[result.risk_level] || "Terdeteksi";
+          if (Array.isArray(result.violations) && result.violations.length) {
+            result.violations.forEach(function (v) {
+              var sev = (v.risk === "critical" || v.risk === "high") ? "error" : "warning";
+              addProblem(sev, "[Keamanan] " + escapeHtml(v.message), v.line > 0 ? v.line : null, null);
+            });
+          } else {
+            addProblem("error", "[Keamanan] Kode diblokir karena mengandung pola berbahaya.", null, null);
+          }
+          $("#aicode-feedback").html(
+            '<div class="alert alert-danger">' +
+            "<strong>🔒 Kode Diblokir — Risiko Keamanan " + escapeHtml(riskLabel) + "</strong>" +
+            "<p>Kode kamu mengandung operasi yang tidak diizinkan dan <strong>tidak dieksekusi</strong>. " +
+            "Lihat panel <strong>PROBLEMS</strong> di bawah untuk detail setiap pelanggaran.</p>" +
+            "<p class=\"mb-0\"><small>Hapus pola berbahaya lalu coba jalankan lagi.</small></p>" +
+            "</div>"
+          );
           return true;
         }
 
         // Display executor output only on failure (avoid noisy test logs).
         if (result.stderr || result.exitCode !== 0) {
           if (result.stdout) {
-            appendError(`[executor] ${result.stdout}`.trim());
+            const outText = String(result.stdout).trim();
+            const outFirst = outText.split("\n")[0];
+            const outLoc = parseStackLocation(outText, false);
+            addProblem("error", outFirst, outLoc ? outLoc.line : null, outLoc ? outLoc.col : null);
           }
           if (result.stderr) {
-            appendError(`[executor] ${result.stderr}`.trim());
+            const errText = String(result.stderr).trim();
+            const errFirst = errText.split("\n")[0];
+            const errLoc = parseStackLocation(errText, false);
+            addProblem("error", errFirst, errLoc ? errLoc.line : null, errLoc ? errLoc.col : null);
           }
         }
 
@@ -463,30 +546,111 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
    * Clear console and error panels
    */
   const resetPanels = function () {
-    $("#aicode-errors").text("");
+    clearProblems();
+    clearOutput();
   };
 
   /**
-   * Append a line to console output
-   * @param {string} line
+   * Append a console.log/info line to the Output panel
+   * @param {string} level  "log" | "info"
+   * @param {string} message
+   */
+  const addOutput = function (level, message) {
+    if (!message) {
+      return;
+    }
+    const panel = document.getElementById("aicode-output-panel");
+    const list  = document.getElementById("aicode-output-list");
+    const countEl = document.getElementById("aicode-output-count");
+    if (!panel || !list) {
+      return;
+    }
+    panel.style.display = "block";
+    if (countEl) {
+      const n = (parseInt(countEl.dataset.count || "0", 10) || 0) + 1;
+      countEl.dataset.count = String(n);
+      countEl.textContent = n + " line" + (n !== 1 ? "s" : "");
+    }
+    const el = document.createElement("div");
+    el.className = "aicode-output-line" + (level === "info" ? " aicode-output-info" : "");
+    el.textContent = message;
+    list.appendChild(el);
+    list.scrollTop = list.scrollHeight;
+  };
+
+  /**
+   * Clear the Output panel and hide it
+   */
+  const clearOutput = function () {
+    const panel   = document.getElementById("aicode-output-panel");
+    const list    = document.getElementById("aicode-output-list");
+    const countEl = document.getElementById("aicode-output-count");
+    if (panel) {
+      panel.style.display = "none";
+    }
+    if (list) {
+      list.innerHTML = "";
+    }
+    if (countEl) {
+      countEl.dataset.count = "0";
+      countEl.textContent = "";
+    }
+  };
+
+  /**
+   * Append a console-level message as a problem item
+   * @param {string} line  format: "[level] message"
    */
   const appendConsole = function (line) {
     if (!line) {
       return;
     }
-    appendError(line);
+    const m = String(line).match(/^\[(\w+)\]\s*([\s\S]*)/);
+    if (m) {
+      const level = m[1].toLowerCase();
+      const msg = m[2];
+      const type = level === "warn" ? "warning"
+        : level === "error" ? "error"
+        : level === "info"  ? "info"
+        : "log";
+      addProblem(type, msg, null, null);
+    } else {
+      addProblem("log", line, null, null);
+    }
   };
 
   /**
-   * Append a line to error output
+   * Append an error message, parsing type and location from the text
    * @param {string} line
    */
   const appendError = function (line) {
     if (!line) {
       return;
     }
-    const current = $("#aicode-errors").text();
-    $("#aicode-errors").text(current ? current + "\n" + line : line);
+    const text = String(line);
+
+    // Executor output: "[executor] ..."
+    if (text.startsWith("[executor] ")) {
+      const body = text.slice("[executor] ".length).trim();
+      const firstLine = body.split("\n")[0];
+      const loc = parseStackLocation(body, false);
+      addProblem("error", firstLine, loc ? loc.line : null, loc ? loc.col : null);
+      return;
+    }
+
+    // Console-level prefix: "[warn] ...", "[log] ...", etc.
+    const cm = text.match(/^\[(\w+)\]\s*([\s\S]*)/);
+    if (cm) {
+      appendConsole(text);
+      return;
+    }
+
+    // Runtime error possibly with stack trace
+    const parts = text.split("\n");
+    const msg = parts[0];
+    const stack = parts.slice(1).join("\n");
+    const loc = parseStackLocation(stack || text, true);
+    addProblem("error", msg, loc ? loc.line : null, loc ? loc.col : null);
   };
 
   /**
@@ -612,6 +776,20 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     if (!previewFrame) {
       return;
     }
+    // Show preview panel only when an HTML template is provided.
+    // For console-only exercises (no HTML template) keep it hidden; the iframe
+    // still runs in the background so console.log messages reach the Output panel.
+    const previewPanel = document.querySelector(".aicode-preview-panel");
+    if (previewPanel) {
+      previewPanel.style.display = (html && html.trim()) ? "block" : "none";
+    }
+    // Compute how many boilerplate lines precede user code inside the srcdoc template,
+    // so stack-trace line numbers can be mapped back to user code lines.
+    // Fixed boilerplate = 71 lines (with single-line CSS and HTML).
+    // Each extra CSS/HTML line adds 1 to the offset.
+    const cssLineCount  = String(css  || "").split("\n").length;
+    const htmlLineCount = String(html || "").split("\n").length;
+    previewLineOffset = 69 + cssLineCount + htmlLineCount;
     previewFrame.srcdoc = buildSrcDoc(html, css, js);
   };
 
@@ -624,14 +802,83 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     historyList = document.getElementById("aicode-history-list");
     historyItems = loadHistory();
     renderHistory();
+    loadHistoryFromDB();
   };
 
   /**
-   * Get storage key for history
+   * Load run history from DB and merge with sessionStorage
+   */
+  const loadHistoryFromDB = function () {
+    const problemId = getProblemId();
+    if (!problemId) {
+      return;
+    }
+    Ajax.call([
+      {
+        methodname: "mod_aicode_get_run_history",
+        args: {
+          problemid: problemId,
+          sesskey: getSesskey() || "",
+        },
+      },
+    ])[0]
+      .then(function (response) {
+        var dbHistory;
+        try {
+          dbHistory = JSON.parse(response.history);
+        } catch (e) {
+          return true;
+        }
+        if (!Array.isArray(dbHistory) || !dbHistory.length) {
+          return true;
+        }
+
+        // Extract code strings from DB history (oldest-first, already sorted).
+        var dbCodes = dbHistory
+          .map(function (h) { return String(h.code || "").trim(); })
+          .filter(Boolean);
+
+        // Merge: DB history is authoritative; append any session-only items not yet in DB.
+        var merged = dbCodes.slice();
+        historyItems.forEach(function (item) {
+          var trimmed = String(item || "").trim();
+          if (trimmed && merged.indexOf(trimmed) === -1) {
+            merged.push(trimmed);
+          }
+        });
+
+        merged = merged.slice(-20);
+        historyItems = merged;
+        saveHistory(historyItems);
+        renderHistory();
+        return true;
+      })
+      .catch(function () {
+        // Silently ignore — sessionStorage history still works.
+      });
+  };
+
+  /**
+   * Get storage key for history – scoped to the current exercise.
+   * Uses problemId as primary key, cmId (course-module id) as secondary,
+   * and the URL ?id= parameter as a final fallback so that history is
+   * never accidentally shared across different activities.
    * @return {string}
    */
   const getHistoryKey = function () {
-    return `aicode_history_${config.problemId || "default"}`;
+    const pid = Number.parseInt(config.problemId, 10);
+    const cid = Number.parseInt(config.cmId, 10);
+    if (Number.isInteger(pid) && pid > 0) {
+      return `aicode_history_p${pid}`;
+    }
+    if (Number.isInteger(cid) && cid > 0) {
+      return `aicode_history_cm${cid}`;
+    }
+    const urlCmId = getCmIdFromUrl();
+    if (urlCmId) {
+      return `aicode_history_cm${urlCmId}`;
+    }
+    return "aicode_history_unknown";
   };
 
   /**
@@ -817,7 +1064,7 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
 
     for (let pattern of suspiciousPatterns) {
       if (pattern.test(code)) {
-        $("#aicode-errors").text("Error: Suspicious or disallowed code pattern detected.");
+        addProblem("error", "Suspicious or disallowed code pattern detected.", null, null);
         $("#aicode-feedback").html('<div class="alert alert-danger">⚠ Your code contains potentially unsafe operations.</div>');
         return true;
       }
@@ -863,7 +1110,7 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
   };
 
   /**
-   * Record hint usage (single detailed hint mode)
+   * Record hint usage
    * @param {number} problemId
    * @param {string} sesskey
    */
@@ -873,7 +1120,6 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
         methodname: "mod_aicode_record_hint",
         args: {
           problemid: problemId,
-          level: 1,
           sesskey: sesskey || "",
         },
       },
@@ -1112,8 +1358,19 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     html += `<p><strong>${escapeHtml(String(diagnosis.message_short || "An error occurred."))}</strong></p>`;
     html += `<p>${escapeHtml(String(diagnosis.message_long || ""))}</p>`;
 
+    if (feedback && Array.isArray(feedback.hints) && feedback.hints.length) {
+      html += '<div class="mt-2"><strong>Petunjuk:</strong><ul class="mb-1">';
+      feedback.hints.forEach(function (hint) {
+        const hintText = typeof hint === "string" ? hint : (hint && hint.hint ? hint.hint : "");
+        if (hintText) {
+          html += `<li>${escapeHtml(hintText)}</li>`;
+        }
+      });
+      html += "</ul></div>";
+    }
+
     if (feedback && feedback.suggested_fix && feedback.suggested_fix.explanation) {
-      html += '<div class="mt-2"><strong>Suggested Fix:</strong><br>';
+      html += '<div class="mt-2"><strong>Saran Perbaikan:</strong><br>';
       html += escapeHtml(String(feedback.suggested_fix.explanation));
       if (feedback.suggested_fix.code_patch) {
         html += '<pre class="mt-1" style="background:#f0f0f0;padding:5px;">';
@@ -1157,19 +1414,10 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
    * @param {object} location
    */
   const highlightError = function (location) {
-    if (!window.monaco || !editor || !editor.getModel) {
+    if (!location || !location.line) {
       return;
     }
-    monaco.editor.setModelMarkers(editor.getModel(), "aicode", [
-      {
-        startLineNumber: location.line,
-        startColumn: location.column || 1,
-        endLineNumber: location.line,
-        endColumn: (location.column || 1) + 10,
-        message: location.snippet || "Error here",
-        severity: monaco.MarkerSeverity.Error,
-      },
-    ]);
+    highlightEditorLine(location.line);
   };
 
   /**
@@ -1504,6 +1752,10 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     updateLineNumbers();
     fallbackEditor.addEventListener("input", updateLineNumbers);
     fallbackEditor.addEventListener("scroll", syncLineNumbersScroll);
+    fallbackEditor.addEventListener("input", function () {
+      $("#aicode-active-line").hide();
+      $(".aicode-problem-item").removeClass("is-active");
+    });
   };
 
   /**
@@ -1520,10 +1772,6 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     fallbackEditor.style.display = "block";
     initLineNumbers();
     initHighlight();
-    const monacoContainer = document.getElementById("aicode-monaco-editor");
-    if (monacoContainer) {
-      monacoContainer.style.display = "none";
-    }
     editor = {
       getValue: function () {
         return fallbackEditor.value;
@@ -1538,7 +1786,7 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
   };
 
   /**
-   * Get editor value (Monaco or fallback)
+   * Get editor value
    * @return {string}
    */
   const getEditorValue = function () {
@@ -1549,7 +1797,7 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
   };
 
   /**
-   * Set editor value (Monaco or fallback)
+   * Set editor value
    * @param {string} value
    */
   const setEditorValue = function (value) {
@@ -1559,13 +1807,11 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
   };
 
   /**
-   * Clear Monaco markers if available
+   * Clear editor error highlights
    */
   const clearEditorMarkers = function () {
-    if (!window.monaco || !editor || !editor.getModel) {
-      return;
-    }
-    monaco.editor.setModelMarkers(editor.getModel(), "aicode", []);
+    $("#aicode-active-line").hide();
+    $(".aicode-problem-item").removeClass("is-active");
   };
 
   /**
@@ -1623,8 +1869,77 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
       clearEditorMarkers();
       if (previewFrame) {
         previewFrame.srcdoc = "";
+        const previewPanel = document.querySelector(".aicode-preview-panel");
+        if (previewPanel) {
+          const hasHtmlTpl = getHtmlTemplate() && getHtmlTemplate().trim();
+          previewPanel.style.display = hasHtmlTpl ? "block" : "none";
+        }
       }
     }
+  };
+
+  /**
+   * Lock the editor after a successful exam submission
+   * @param {string} code  The submitted code to display
+   */
+  const lockEditorAfterSubmit = function (code) {
+    if (code !== undefined && code !== null && String(code).trim()) {
+      setEditorValue(String(code));
+    }
+
+    if (fallbackEditor) {
+      fallbackEditor.setAttribute("readonly", "readonly");
+      fallbackEditor.style.cursor = "default";
+      fallbackEditor.style.color = "#495057";
+      fallbackEditor.style.caretColor = "transparent";
+    }
+
+    $("#aicode-submit-btn")
+      .prop("disabled", true)
+      .text("Sudah Dikumpulkan ✓")
+      .removeClass("btn-info")
+      .addClass("btn-success");
+    $("#aicode-reset-btn").hide();
+    $("#aicode-hint-btn").hide();
+
+    if (!document.getElementById("aicode-submitted-banner")) {
+      const banner = document.createElement("div");
+      banner.id = "aicode-submitted-banner";
+      banner.style.cssText =
+        "margin-top:8px;padding:10px 14px;background:#d1e7dd;border:1px solid #a3cfbb;" +
+        "border-radius:0.5rem;font-size:0.875rem;color:#0a3622;";
+      banner.innerHTML =
+        "<strong>✓ Jawaban kamu sudah dikumpulkan.</strong> " +
+        "Editor sekarang bersifat <em>read-only</em> dan tidak dapat diubah lagi.";
+      const controls = document.querySelector(".aicode-controls");
+      if (controls && controls.parentNode) {
+        controls.parentNode.insertBefore(banner, controls.nextSibling);
+      }
+    }
+  };
+
+  /**
+   * Get submitted code from DOM hidden textarea
+   * @return {string}
+   */
+  const getSubmittedCodeFromDom = function () {
+    const el = document.getElementById("aicode-submitted-code-raw");
+    return el ? (el.value || "") : "";
+  };
+
+  /**
+   * Check if student has already submitted (from config or DOM)
+   * @return {boolean}
+   */
+  const getHasSubmitted = function () {
+    if (config.hasSubmitted === true) {
+      return true;
+    }
+    const data = document.getElementById("aicode-data");
+    if (data && data.dataset && data.dataset.hassubmitted === "1") {
+      return true;
+    }
+    return false;
   };
 
   /**
@@ -1640,18 +1955,88 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
       return;
     }
 
+    const examMode = isExamModeForStudent();
+
+    if (examMode && getHasSubmitted()) {
+      Notification.alert(
+        "Sudah Dikumpulkan",
+        "Kamu hanya dapat mengumpulkan jawaban satu kali. Jawaban kamu sudah tercatat."
+      );
+      return;
+    }
+
+    if (examMode) {
+      ModalFactory.create({
+        type: ModalFactory.types.SAVE_CANCEL,
+        title: "Konfirmasi Pengumpulan",
+        body:
+          "<p>Apakah kamu sudah yakin dengan jawaban kamu?</p>" +
+          "<p class='mb-0'><strong>⚠ Setelah dikumpulkan, kode tidak dapat diubah atau dikirim ulang.</strong></p>",
+      })
+        .then(function (modal) {
+          modal.setSaveButtonText("Ya, Kumpulkan");
+          modal.show();
+          modal.getRoot().on(ModalEvents.save, function () {
+            doSubmit(code, problemId, sesskey, examMode);
+          });
+          modal.getRoot().on(ModalEvents.hidden, function () {
+            modal.destroy();
+          });
+          return modal;
+        })
+        .catch(Notification.exception);
+      return;
+    }
+
+    doSubmit(code, problemId, sesskey, examMode);
+  };
+
+  /**
+   * Execute the actual AJAX submit call
+   * @param {string} code
+   * @param {number} problemId
+   * @param {string} sesskey
+   * @param {boolean} examMode
+   */
+  const doSubmit = function (code, problemId, sesskey, examMode) {
+    const outputList = document.getElementById("aicode-output-list");
+    const consoleOutput = outputList
+      ? Array.from(outputList.querySelectorAll(".aicode-output-line"))
+          .map(function (el) { return el.textContent || ""; })
+          .join("\n")
+      : "";
+
     Ajax.call([
       {
         methodname: "mod_aicode_send_to_teacher",
         args: {
           problemid: problemId,
           code: code,
+          console_output: consoleOutput,
           sesskey: sesskey || "",
         },
       },
     ])[0]
-      .then(function () {
-        Notification.alert("Success", "Your code has been sent to the teacher for review.");
+      .then(function (response) {
+        if (examMode) {
+          if (response && response.already_submitted) {
+            config.hasSubmitted = true;
+            lockEditorAfterSubmit(code);
+            Notification.alert(
+              "Sudah Dikumpulkan",
+              "Kamu hanya dapat mengumpulkan jawaban satu kali. Jawaban kamu sudah tercatat."
+            );
+            return true;
+          }
+          config.hasSubmitted = true;
+          lockEditorAfterSubmit(code);
+          Notification.alert(
+            "Berhasil Dikumpulkan",
+            "Jawaban kamu berhasil dikumpulkan. Kamu tidak dapat mengubah atau mengirim ulang jawaban."
+          );
+        } else {
+          Notification.alert("Success", "Your code has been sent to the teacher for review.");
+        }
         return true;
       })
       .catch(Notification.exception);
@@ -1675,6 +2060,184 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     });
   };
 
+  /**
+   * Update the count badges in the Problems panel header
+   */
+  const updateProblemBadges = function () {
+    const $err  = $("#aicode-badge-error");
+    const $warn = $("#aicode-badge-warn");
+    const $info = $("#aicode-badge-info");
+    const total = problemStats.error + problemStats.warning + problemStats.info;
+
+    if (problemStats.error > 0) {
+      $err.html(PROB_ICON_ERROR + " " + problemStats.error).show();
+    } else {
+      $err.hide();
+    }
+    if (problemStats.warning > 0) {
+      $warn.html(PROB_ICON_WARN + " " + problemStats.warning).show();
+    } else {
+      $warn.hide();
+    }
+    if (problemStats.info > 0) {
+      $info.html(PROB_ICON_LOG + " " + problemStats.info).show();
+    } else {
+      $info.hide();
+    }
+
+    const $fc = $("#aicode-problems-file-count");
+    if (total > 0) {
+      $fc.text(total + " problem" + (total !== 1 ? "s" : ""));
+    } else {
+      $fc.text("");
+    }
+  };
+
+  /**
+   * Clear all problem items and reset counts
+   */
+  const clearProblems = function () {
+    problemStats = { error: 0, warning: 0, info: 0 };
+    $("#aicode-errors").empty();
+    $("#aicode-problems-group").hide();
+    $("#aicode-problems-empty").addClass("is-visible");
+    updateProblemBadges();
+  };
+
+  /**
+   * Highlight a specific line in the fallback editor and scroll to it
+   * @param {number} lineNumber  1-based user code line
+   */
+  const highlightEditorLine = function (lineNumber) {
+    if (!fallbackEditor || !lineNumber || lineNumber < 1) {
+      return;
+    }
+
+    const value = fallbackEditor.value || "";
+    const lines = value.split("\n");
+    const clampedLine = Math.min(lineNumber, lines.length);
+
+    // Build char offset for the target line
+    let charOffset = 0;
+    for (let i = 0; i < clampedLine - 1; i++) {
+      charOffset += lines[i].length + 1; // +1 for \n
+    }
+    const lineEnd = charOffset + (lines[clampedLine - 1] || "").length;
+
+    // Select the entire line in the textarea
+    fallbackEditor.focus();
+    fallbackEditor.setSelectionRange(charOffset, lineEnd);
+
+    // Get computed line height and padding
+    const style = window.getComputedStyle(fallbackEditor);
+    const lineH = parseFloat(style.lineHeight) || 20;
+    const padTop = parseFloat(style.paddingTop) || 10;
+
+    // Position the active-line highlight overlay
+    const $hl = $("#aicode-active-line");
+    if ($hl.length) {
+      const topPx = padTop + (clampedLine - 1) * lineH;
+      $hl.css({ top: topPx + "px", height: lineH + "px" }).show();
+    }
+
+    // Scroll editor to vertically center the target line
+    const scrollTarget = Math.max(
+      0,
+      padTop + (clampedLine - 1) * lineH - fallbackEditor.clientHeight / 2 + lineH / 2
+    );
+    fallbackEditor.scrollTop = scrollTarget;
+    syncHighlightScroll();
+  };
+
+  /**
+   * Handle click on a problem item that has a line reference
+   * @param {Event} e
+   */
+  const handleProblemItemClick = function (e) {
+    const $item = $(e.currentTarget);
+    const lineAttr = $item.attr("data-line");
+    const lineNum = lineAttr ? parseInt(lineAttr, 10) : NaN;
+    if (isNaN(lineNum) || lineNum < 1) {
+      return;
+    }
+    // Mark this item as active, deactivate others
+    $(".aicode-problem-item").removeClass("is-active");
+    $item.addClass("is-active");
+    highlightEditorLine(lineNum);
+  };
+
+  /**
+   * Parse stack trace for line/column info
+   * @param {string} stack
+   * @param {boolean} isPreview - true if from srcdoc iframe
+   * @return {{line: number, col: number}|null}
+   */
+  const parseStackLocation = function (stack, isPreview) {
+    if (!stack) {
+      return null;
+    }
+    if (isPreview) {
+      const m = stack.match(/srcdoc:(\d+):(\d+)/);
+      if (m) {
+        const rawLine = parseInt(m[1], 10);
+        const col = parseInt(m[2], 10);
+        const userLine = Math.max(1, rawLine - previewLineOffset);
+        return { line: userLine, col: col };
+      }
+    } else {
+      const m = stack.match(/student_code\.js:(\d+):(\d+)/);
+      if (m) {
+        return { line: parseInt(m[1], 10), col: parseInt(m[2], 10) };
+      }
+    }
+    return null;
+  };
+
+  /**
+   * Add a single problem item to the Problems panel
+   * @param {string} type  'error' | 'warning' | 'info' | 'log'
+   * @param {string} message
+   * @param {number|null} line
+   * @param {number|null} col
+   */
+  const addProblem = function (type, message, line, col) {
+    if (!message) {
+      return;
+    }
+
+    $("#aicode-problems-empty").removeClass("is-visible");
+    $("#aicode-problems-group").show();
+
+    if (type === "error") {
+      problemStats.error++;
+    } else if (type === "warning") {
+      problemStats.warning++;
+    } else {
+      problemStats.info++;
+    }
+    updateProblemBadges();
+
+    const icon = type === "error"   ? PROB_ICON_ERROR
+      : type === "warning" ? PROB_ICON_WARN
+      : type === "info"    ? PROB_ICON_INFO
+      : PROB_ICON_LOG;
+
+    const locationHtml = (line !== null && line !== undefined && line > 0)
+      ? '<span class="aicode-problem-location">[' + line + ', ' + (col || 1) + ']</span>'
+      : "";
+
+    const $item = $('<div class="aicode-problem-item aicode-problem-' + type + '"></div>');
+    if (line !== null && line !== undefined && line > 0) {
+      $item.attr("data-line", line);
+    }
+    $item.html(
+      '<span class="aicode-problem-icon">' + icon + "</span>" +
+      '<span class="aicode-problem-message">' + escapeHtml(String(message)) + "</span>" +
+      locationHtml
+    );
+    $("#aicode-errors").append($item);
+  };
+
   return {
     /**
      * Initialize the module
@@ -1683,6 +2246,7 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
     init: function (cfg) {
       config = cfg || {};
       config.problemId = config.problemId || config.problemid || getFallbackProblemId();
+      config.cmId = config.cmId || config.cmid || getCmIdFromUrl();
       config.language = config.language || getFallbackLanguage();
       config.sesskey = config.sesskey || getSesskey();
       config.htmlTemplate = config.htmlTemplate || getHtmlTemplate();
@@ -1691,9 +2255,16 @@ define(["jquery", "core/ajax", "core/notification"], function ($, Ajax, Notifica
       if (typeof config.isTeacher === "undefined") {
         config.isTeacher = isTeacher();
       }
+      if (typeof config.hasSubmitted === "undefined") {
+        config.hasSubmitted = false;
+      }
       $(document).ready(function () {
-        initMonaco();
+        initEditor();
         applyModeSettings();
+        if (isExamModeForStudent() && getHasSubmitted()) {
+          const submittedCode = getSubmittedCodeFromDom();
+          lockEditorAfterSubmit(submittedCode);
+        }
       });
     },
   };

@@ -20,8 +20,6 @@ use external_api;
 use external_function_parameters;
 use external_value;
 use external_single_structure;
-use core_ai\aiactions\generate_text;
-use core_ai\manager;
 use mod_aicode\local\ai_prompt;
 
 defined('MOODLE_INTERNAL') || die();
@@ -83,16 +81,31 @@ class analyze_code extends external_api {
         $PAGE->set_context($context);
         require_capability('mod/aicode:submit', $context);
 
-        // Check rate limiting.
+        // Check rate limiting — only count rows where the student actually clicked AI Hint
+        // (ai_requested_at IS NOT NULL). Plain code runs do NOT consume AI quota.
         $maxcalls = get_config('aicode', 'max_calls_per_day') ?: 50;
         $daystart = strtotime('today');
-        $count = $DB->count_records_select('aicode_attempts',
-            'userid = :userid AND timecreated >= :daystart',
-            ['userid' => $USER->id, 'daystart' => $daystart]);
+        $count = $DB->count_records_select(
+            'aicode_attempts',
+            'userid = :userid AND ai_requested_at IS NOT NULL AND ai_requested_at >= :daystart',
+            ['userid' => $USER->id, 'daystart' => $daystart]
+        );
 
         if ($count >= $maxcalls) {
             throw new \moodle_exception('Rate limit exceeded. Please try again tomorrow.');
         }
+
+        // Fetch the student's latest attempt for this problem up-front so we can
+        // stamp ai_requested_at (and optionally ai_feedback_json) on it later.
+        $latestattemptrows = $DB->get_records_select(
+            'aicode_attempts',
+            'problemid = :pid AND userid = :uid',
+            ['pid' => $params['problemid'], 'uid' => $USER->id],
+            'timecreated DESC',
+            'id',
+            0, 1
+        );
+        $latestattempt = !empty($latestattemptrows) ? reset($latestattemptrows) : null;
 
         $prompttemplate = self::resolve_ai_prompt_template($problem);
 
@@ -107,19 +120,22 @@ class analyze_code extends external_api {
         if ($cached && ($cached->timecreated + $cachettl) > time() && !empty($cached->ai_response_json)) {
             $cachedfeedback = json_decode($cached->ai_response_json, true);
             if (self::is_success_feedback($cachedfeedback)) {
+                // Stamp ai_requested_at so this cached hit is counted against the quota.
+                if ($latestattempt) {
+                    $DB->set_field('aicode_attempts', 'ai_requested_at', time(), ['id' => $latestattempt->id]);
+                }
                 return ['feedback' => $cached->ai_response_json];
             }
         }
 
         // Anonymize code (strip comments with names, emails, etc.).
         $anonymizedcode = self::anonymize_code($params['code']);
-        $feedback = self::get_feedback_from_moodle_ai(
-            (int)$context->id,
-            (int)$USER->id,
+        $feedback = self::get_feedback_from_gemini(
             $anonymizedcode,
             (string)$params['stderr'],
             (string)$params['trace'],
-            $prompttemplate
+            $prompttemplate,
+            (int)$params['problemid']
         );
         if (!is_array($feedback)) {
             $feedback = self::build_ai_error_feedback(
@@ -169,6 +185,15 @@ class analyze_code extends external_api {
             $DB->delete_records('aicode_cache', ['id' => $cached->id]);
         }
 
+        // Persist AI request timestamp (always) and successful feedback (on success)
+        // to the student's most recent attempt so teachers can see it in the report.
+        if ($latestattempt) {
+            $DB->set_field('aicode_attempts', 'ai_requested_at', time(), ['id' => $latestattempt->id]);
+            if ($shouldcache) {
+                $DB->set_field('aicode_attempts', 'ai_feedback_json', $feedbackjson, ['id' => $latestattempt->id]);
+            }
+        }
+
         return ['feedback' => $feedbackjson];
     }
 
@@ -189,70 +214,90 @@ class analyze_code extends external_api {
     }
 
     /**
-     * Get AI feedback via Moodle AI subsystem.
+     * Get AI feedback via Google Gemini API.
      *
-     * @param int $contextid
-     * @param int $userid
      * @param string $code
      * @param string $stderr
      * @param string $trace
      * @param string $prompttemplate
+     * @param int    $problemid  Used to fetch teacher correction examples for few-shot injection.
      * @return array
      */
-    private static function get_feedback_from_moodle_ai($contextid, $userid, $code, $stderr, $trace, $prompttemplate) {
-        if (!class_exists(manager::class) || !class_exists(generate_text::class)) {
+    private static function get_feedback_from_gemini($code, $stderr, $trace, $prompttemplate, $problemid = 0) {
+        $apikey = trim((string)get_config('aicode', 'gemini_api_key'));
+        if ($apikey === '') {
             return self::build_ai_error_feedback(
-                'Subsystem Moodle AI tidak tersedia. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
-                'ai_subsystem_unavailable'
+                'Gemini API key belum dikonfigurasi. Silakan isi API key di pengaturan plugin AICode.',
+                'gemini_api_key_missing'
             );
         }
 
+        $model = trim((string)get_config('aicode', 'gemini_model'));
+        if ($model === '') {
+            $model = 'gemini-2.0-flash';
+        }
+
+        $teacherexamples = $problemid > 0 ? self::get_teacher_correction_examples($problemid) : '';
+        $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace, $teacherexamples);
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apikey);
+
+        $requestbody = json_encode([
+            'contents' => [
+                ['parts' => [['text' => $prompt]]],
+            ],
+            'generationConfig' => [
+                'temperature' => 0.2,
+                'topP' => 0.8,
+                'maxOutputTokens' => 2048,
+            ],
+        ]);
+
         try {
-            $aimanager = \core\di::get(manager::class);
-            if (!$aimanager->is_action_available(generate_text::class)) {
+            $curl = new \curl();
+            $curl->setHeader(['Content-Type: application/json']);
+            $rawresponse = $curl->post($url, $requestbody);
+            $httpcode = $curl->get_info()['http_code'] ?? 0;
+
+            if ($curl->get_errno()) {
                 return self::build_ai_error_feedback(
-                    'Tidak ada provider Moodle AI untuk generasi teks. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
-                    'ai_provider_unavailable'
+                    'Koneksi ke Gemini API gagal: ' . $curl->error . '. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'gemini_connection_error'
                 );
             }
 
-            $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace);
-            $action = new generate_text($contextid, $userid, $prompt);
-            $response = $aimanager->process_action($action);
+            $decoded = json_decode($rawresponse, true);
 
-            if (!$response->get_success()) {
-                $reason = trim((string)$response->get_errormessage());
-                if ($reason === '') {
-                    $reason = 'Provider Moodle AI gagal memproses permintaan.';
-                } else {
-                    $reason = 'Kesalahan provider Moodle AI: ' . $reason;
-                }
+            if ($httpcode !== 200) {
+                $apierror = trim((string)($decoded['error']['message'] ?? ''));
+                $reason = $apierror !== '' ? 'Gemini API error: ' . $apierror : 'Gemini API mengembalikan status HTTP ' . $httpcode . '.';
                 return self::build_ai_error_feedback(
                     $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
-                    'ai_provider_error'
+                    'gemini_api_error'
                 );
             }
 
-            $responsedata = $response->get_response_data();
-            $generatedcontent = trim((string)($responsedata['generatedcontent'] ?? ''));
-            $feedback = self::extract_feedback_json($generatedcontent);
+            $generatedcontent = trim((string)($decoded['candidates'][0]['content']['parts'][0]['text'] ?? ''));
+            if ($generatedcontent === '') {
+                return self::build_ai_error_feedback(
+                    'Gemini API tidak menghasilkan teks. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'gemini_empty_response'
+                );
+            }
 
+            $feedback = self::extract_feedback_json($generatedcontent);
             if (!is_array($feedback)) {
                 return self::build_ai_error_feedback(
-                    'Format respons Moodle AI tidak valid. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'Format respons Gemini tidak valid. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                     'invalid_ai_response_format'
                 );
             }
 
             $normalized = self::normalize_feedback($feedback);
-            $modelused = $response->get_model_used();
-            if (!empty($modelused)) {
-                $normalized['explainability'] = trim($normalized['explainability'] . ' (model: ' . $modelused . ')');
-            }
+            $normalized['explainability'] = trim($normalized['explainability'] . ' (model: ' . $model . ')');
 
             if (!self::is_success_feedback($normalized)) {
                 return self::build_ai_error_feedback(
-                    'Respons Moodle AI tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'Respons Gemini tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                     'invalid_ai_feedback_schema'
                 );
             }
@@ -261,9 +306,9 @@ class analyze_code extends external_api {
         } catch (\Throwable $e) {
             $reason = trim((string)$e->getMessage());
             if ($reason === '') {
-                $reason = 'Permintaan Moodle AI gagal.';
+                $reason = 'Permintaan Gemini API gagal.';
             } else {
-                $reason = 'Permintaan Moodle AI gagal: ' . $reason;
+                $reason = 'Permintaan Gemini API gagal: ' . $reason;
             }
             return self::build_ai_error_feedback(
                 $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
@@ -279,14 +324,108 @@ class analyze_code extends external_api {
      * @param string $code
      * @param string $stderr
      * @param string $trace
+     * @param string $teacherexamples  Optional few-shot examples from teacher corrections.
      * @return string
      */
-    private static function build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace) {
+    private static function build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace, $teacherexamples = '') {
         $template = trim((string)$prompttemplate);
         if ($template === '') {
             $template = ai_prompt::get_default_template();
         }
-        return ai_prompt::render_template($template, (string)$code, (string)$stderr, (string)$trace);
+        $prompt = ai_prompt::render_template($template, (string)$code, (string)$stderr, (string)$trace);
+        if ($teacherexamples !== '') {
+            // Prepend teacher corrections so the model uses them as in-context guidance.
+            $prompt = $teacherexamples . "\n\n" . $prompt;
+        }
+        return $prompt;
+    }
+
+    /**
+     * Fetch approved teacher correction examples for the given problem.
+     * Returns a formatted string to prepend to the AI prompt, or '' if none found.
+     *
+     * @param int $problemid
+     * @return string
+     */
+    private static function get_teacher_correction_examples(int $problemid): string {
+        global $DB;
+
+        $sql = "SELECT o.corrected_feedback_json, a.ai_feedback_json
+                  FROM {aicode_teacher_overrides} o
+                  JOIN {aicode_attempts} a ON a.id = o.attemptid
+                 WHERE a.problemid = :pid
+                   AND o.use_as_example = 1
+                 ORDER BY o.timecreated DESC";
+
+        $rows = $DB->get_records_sql($sql, ['pid' => $problemid], 0, 3);
+        if (empty($rows)) {
+            return '';
+        }
+
+        $parts = [];
+        $idx   = 1;
+        foreach ($rows as $row) {
+            $correction = json_decode($row->corrected_feedback_json ?? '{}', true);
+            $originalfb = json_decode($row->ai_feedback_json ?? '{}', true);
+            if (!is_array($correction)) {
+                continue;
+            }
+
+            $block = "=== Contoh Koreksi Guru #{$idx} ===\n";
+
+            // Show what the AI originally said (for contrast).
+            if (is_array($originalfb) && ($originalfb['status'] ?? '') === 'success') {
+                $origshort = trim((string)($originalfb['diagnosis']['message_short'] ?? ''));
+                if ($origshort !== '') {
+                    $block .= "Feedback AI awal: \"{$origshort}\"\n";
+                }
+            }
+
+            // Teacher corrected diagnosis.
+            $cd        = $correction['corrected_diagnosis'] ?? [];
+            $corrshort = trim((string)($cd['message_short'] ?? ''));
+            $corrlong  = trim((string)($cd['message_long'] ?? ''));
+            if ($corrshort !== '') {
+                $block .= "Koreksi guru (ringkas): \"{$corrshort}\"\n";
+            }
+            if ($corrlong !== '') {
+                $block .= "Koreksi guru (lengkap): \"{$corrlong}\"\n";
+            }
+
+            // Teacher corrected hints.
+            $hints = $correction['corrected_hints'] ?? [];
+            if (!empty($hints) && is_array($hints)) {
+                $block .= "Petunjuk yang lebih baik:\n";
+                foreach (array_slice($hints, 0, 3) as $hi => $hint) {
+                    $block .= ($hi + 1) . '. ' . trim((string)$hint) . "\n";
+                }
+            }
+
+            // Teacher corrected fix.
+            $fix = trim((string)($correction['corrected_suggested_fix'] ?? ''));
+            if ($fix !== '') {
+                $block .= "Saran perbaikan yang tepat: \"{$fix}\"\n";
+            }
+
+            // Teacher notes (general guidance).
+            $notes = trim((string)($correction['notes'] ?? ''));
+            if ($notes !== '') {
+                $block .= "Catatan guru: \"{$notes}\"\n";
+            }
+
+            $parts[] = $block;
+            $idx++;
+        }
+
+        if (empty($parts)) {
+            return '';
+        }
+
+        $header = "PENTING: Guru telah memberikan koreksi pada feedback AI sebelumnya untuk soal ini. "
+            . "Gunakan contoh-contoh di bawah sebagai panduan untuk menghasilkan feedback yang lebih akurat, "
+            . "sesuai kesalahan nyata siswa, dan sesuai dengan harapan guru:\n\n";
+
+        return $header . implode("\n", $parts) . "\n";
     }
 
     /**
@@ -475,7 +614,7 @@ class analyze_code extends external_api {
             'hints' => [],
             'suggested_fix' => null,
             'recommended_materials' => [],
-            'explainability' => 'Dihasilkan oleh provider Moodle AI.',
+            'explainability' => 'Dihasilkan oleh Gemini AI.',
         ];
 
         if (!empty($feedback['diagnosis']) && is_array($feedback['diagnosis'])) {
@@ -507,10 +646,8 @@ class analyze_code extends external_api {
                 if ($hinttext === '') {
                     continue;
                 }
-                $hints[] = [
-                    'hint' => $hinttext,
-                ];
-                if (count($hints) >= 5) {
+                $hints[] = $hinttext;
+                if (count($hints) >= 3) {
                     break;
                 }
             }
@@ -552,7 +689,7 @@ class analyze_code extends external_api {
         if (!empty($feedback['explainability'])) {
             $normalized['explainability'] = (string)$feedback['explainability'];
         } else {
-            $normalized['explainability'] = 'Dihasilkan oleh provider Moodle AI.';
+            $normalized['explainability'] = 'Dihasilkan oleh Gemini AI.';
         }
 
         return $normalized;

@@ -32,7 +32,18 @@ $string['aicode:overridefeedback'] = 'Override AI feedback';
 // Form fields.
 $string['aicoproblemname'] = 'Name';
 $string['description'] = 'Question';
-$string['description_help'] = 'Detailed description of the programming problem. Include requirements, constraints, and examples.';
+$string['description_help'] = 'Detailed description of the programming problem. Include requirements, constraints, and examples.
+
+You can use HTML tags to format the content visually:
+
+* **Headings:** &lt;h3&gt;Title&lt;/h3&gt;
+* **Paragraph:** &lt;p&gt;Text&lt;/p&gt;
+* **Bold:** &lt;strong&gt;bold text&lt;/strong&gt;
+* **Italic:** &lt;em&gt;italic text&lt;/em&gt;
+* **Inline code:** &lt;code&gt;console.log()&lt;/code&gt;
+* **Unordered list:** &lt;ul&gt;&lt;li&gt;item&lt;/li&gt;&lt;/ul&gt;
+* **Ordered list:** &lt;ol&gt;&lt;li&gt;item&lt;/li&gt;&lt;/ol&gt;
+* **Line break:** &lt;br&gt;';
 $string['language'] = 'Programming language';
 $string['mode'] = 'Mode';
 $string['mode_help'] = 'Choose how this activity behaves for students. Training mode enables AI feedback and hints. Exam mode only records student answers without showing AI feedback; only teachers can see detailed evaluation.';
@@ -70,7 +81,7 @@ $string['executiontimeout_desc'] = 'Maximum time allowed for code execution';
 
 // View page.
 $string['run'] = 'Run';
-$string['hint'] = 'Hint';
+$string['hint'] = 'AI Hint';
 $string['reset'] = 'Reset';
 $string['sendtoteacher'] = 'Send to Teacher';
 $string['output'] = 'Console';
@@ -83,6 +94,60 @@ $string['cssreadonly'] = 'CSS';
 $string['history'] = 'History';
 $string['submit'] = 'Submit';
 $string['erroraifeedback'] = 'Error & AI Feedback';
+
+// Teacher report page.
+$string['reporttitle']             = 'Laporan Guru';
+$string['reportstudentdetail']     = 'Detail Siswa';
+$string['backtoproblem']           = 'Kembali ke Aktivitas';
+$string['setgrade']                = 'Beri Nilai';
+$string['gradesaved']              = 'Nilai berhasil disimpan.';
+$string['gradeemptyreset']         = 'Kosongkan untuk menghapus/reset nilai.';
+$string['notessaved']              = 'Catatan berhasil disimpan.';
+$string['correctionsaved']         = 'Koreksi feedback AI berhasil disimpan.';
+$string['submittedcode']           = 'Kode Terakhir Dikumpulkan';
+$string['nocodesubmitted']         = 'Kode tidak tersedia. Siswa belum menggunakan tombol "Submit" atau "Run" setelah pembaruan plugin.';
+$string['teachernotes']            = 'Catatan Guru';
+$string['teachernotesplaceholder'] = 'Tambahkan catatan atau koreksi untuk siswa ini...';
+$string['savenotes']               = 'Simpan Catatan';
+$string['aifeedback']              = 'Feedback AI Terakhir';
+$string['noaifeedback']            = 'Belum ada feedback AI untuk siswa ini.';
+$string['attempthistory']          = 'Riwayat Percobaan';
+$string['noattempts']              = 'Siswa belum melakukan percobaan apapun.';
+
+// AI feedback correction panel.
+$string['aicorrectiontitle']       = 'Evaluasi & Koreksi Feedback AI';
+$string['aicorrectiondesc']        = 'Nilai kualitas feedback AI dan koreksi bagian yang kurang tepat. Koreksi yang disetujui akan dipakai sebagai contoh untuk meningkatkan feedback AI berikutnya (few-shot learning).';
+$string['feedbackratinglabel']     = 'Nilai kualitas feedback AI ini';
+$string['feedbackratingdesc']      = '1 = sangat buruk, 5 = sangat baik';
+$string['correcteddiagnosistitle'] = 'Koreksi Diagnosis';
+$string['correctedshort']          = 'Pesan singkat yang lebih tepat';
+$string['correctedshortph']        = 'Contoh: Variabel belum didefinisikan sebelum digunakan';
+$string['correctedlong']           = 'Penjelasan panjang yang lebih tepat';
+$string['correctedlongph']         = 'Jelaskan kesalahan siswa secara lebih detail dan tepat...';
+$string['correctedhintstitle']     = 'Koreksi Petunjuk (Hints)';
+$string['correctedhintsph']        = 'Satu petunjuk per baris. Contoh:\nPeriksa apakah variabel sudah dideklarasikan dengan let/const/var\nCek urutan deklarasi dan pemanggilan fungsi';
+$string['correctedfixtitle']       = 'Koreksi Saran Perbaikan';
+$string['correctedfixph']          = 'Tuliskan saran perbaikan yang lebih akurat...';
+$string['useasexample']            = 'Jadikan contoh untuk meningkatkan AI (few-shot learning)';
+$string['useasexampledesc']        = 'Jika dicentang, koreksi ini akan diinjeksikan ke prompt Gemini sebagai contoh saat menganalisis kode serupa di masa mendatang.';
+$string['savecorrection']          = 'Simpan Koreksi';
+$string['aicorrection_existing']   = 'Koreksi tersimpan';
+$string['aicorrection_ratedon']    = 'Dinilai oleh guru pada';
+$string['aicorrection_usedas']     = 'Digunakan sebagai contoh few-shot';
+$string['aicorrection_notused']    = 'Belum dijadikan contoh few-shot';
+$string['noaifeedbacktocorrect']   = 'Belum ada feedback AI yang bisa dikoreksi untuk siswa ini. Feedback AI akan muncul setelah siswa menggunakan tombol AI Hint.';
+
+// Security Check Module.
+$string['securityheading'] = 'Security Check Module';
+$string['securityheading_desc'] = 'Server-side static analysis that scans student code for dangerous patterns before forwarding it to the executor. Violations are recorded in the attempt log and visible to teachers in the report.';
+$string['securitycheckenabled'] = 'Enable server-side security check';
+$string['securitycheckenabled_desc'] = 'When enabled, student code is analysed for dangerous operations (OS commands, filesystem access, network requests, code injection, etc.) before execution. Blocked attempts are still recorded so teachers can review them.';
+$string['securityblocklevel'] = 'Minimum risk level to block';
+$string['securityblocklevel_desc'] = 'Code with an aggregate risk at or above this level will be blocked and not sent to the executor. "High" is recommended for most environments.';
+$string['securitylevel_low'] = 'Low — block any violation (strictest)';
+$string['securitylevel_medium'] = 'Medium — block medium, high, and critical';
+$string['securitylevel_high'] = 'High — block high and critical only (recommended)';
+$string['securitylevel_critical'] = 'Critical — block only critical violations (most permissive)';
 
 // Events.
 $string['eventcodesubmitted'] = 'Code submitted';

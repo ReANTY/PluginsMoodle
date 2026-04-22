@@ -37,19 +37,21 @@ class send_to_teacher extends external_api {
         return new external_function_parameters([
             'problemid' => new external_value(PARAM_INT, 'Problem ID'),
             'code' => new external_value(PARAM_RAW, 'Code to send'),
-                'sesskey' => new external_value(PARAM_RAW, 'Session key', VALUE_DEFAULT, ''),
+            'console_output' => new external_value(PARAM_RAW, 'Console output captured in browser', VALUE_DEFAULT, ''),
+            'sesskey' => new external_value(PARAM_RAW, 'Session key', VALUE_DEFAULT, ''),
         ]);
     }
 
     /**
      * Send code to teacher
      */
-    public static function execute($problemid, $code, $sesskey) {
+    public static function execute($problemid, $code, $console_output, $sesskey) {
         global $DB, $USER, $PAGE;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'problemid' => $problemid,
             'code' => $code,
+            'console_output' => $console_output,
             'sesskey' => $sesskey,
         ]);
 
@@ -64,19 +66,35 @@ class send_to_teacher extends external_api {
         $PAGE->set_context($context);
         require_capability('mod/aicode:submit', $context);
 
+        // In exam mode, only one submission is allowed per student.
+        // The dedicated teacher_review_requested column (indexed) makes this an
+        // efficient point-lookup — no full-table LIKE scan on result_json needed.
+        if (($problem->mode ?? 'training') === 'exam') {
+            $alreadysubmitted = $DB->record_exists(
+                'aicode_attempts',
+                ['problemid' => $params['problemid'], 'userid' => $USER->id, 'teacher_review_requested' => 1]
+            );
+            if ($alreadysubmitted) {
+                return ['success' => false, 'already_submitted' => true];
+            }
+        }
+
         // Store as a special attempt marked for teacher review.
         $attempt = new \stdClass();
         $attempt->problemid = $params['problemid'];
         $attempt->userid = $USER->id;
         $attempt->code_hash = hash('sha256', $params['code']);
         $attempt->is_anonymous = 0;
-        $attempt->result_json = json_encode(['teacher_review_requested' => true, 'code' => $params['code']]);
+        $attempt->teacher_review_requested = 1;
+        $attempt->result_json = json_encode([
+            'teacher_review_requested' => true,
+            'code' => $params['code'],
+            'console_output' => substr($params['console_output'], 0, 5000),
+        ]);
         $attempt->timecreated = time();
         $DB->insert_record('aicode_attempts', $attempt);
 
-        // TODO: Send notification to teacher.
-
-        return ['success' => true];
+        return ['success' => true, 'already_submitted' => false];
     }
 
     /**
@@ -85,6 +103,7 @@ class send_to_teacher extends external_api {
     public static function execute_returns() {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success status'),
+            'already_submitted' => new external_value(PARAM_BOOL, 'Whether student already submitted once', VALUE_DEFAULT, false),
         ]);
     }
 }

@@ -84,6 +84,53 @@ class run_code extends external_api {
             throw new \moodle_exception('Code too long (max 50KB)');
         }
 
+        // Server-side security check.
+        $securityresult = null;
+        if ((bool) get_config('aicode', 'security_check_enabled')) {
+            $blocklevel     = get_config('aicode', 'security_block_level') ?: 'high';
+            $securityresult = \mod_aicode\local\security_checker::analyze(
+                $params['code'],
+                $params['language'],
+                $blocklevel
+            );
+
+            if ($securityresult['blocked']) {
+                // Record the blocked attempt so teachers can see it in the report.
+                $blockedattempt                 = new \stdClass();
+                $blockedattempt->problemid      = $params['problemid'];
+                $blockedattempt->userid         = $USER->id;
+                $blockedattempt->is_anonymous   = 0;
+                $blockedattempt->code_hash      = hash('sha256', $params['code']);
+                $blockedattempt->result_json    = json_encode([
+                    'exitCode'         => -2,
+                    'security_blocked' => true,
+                    'risk_level'       => $securityresult['risk_level'],
+                ]);
+                $blockedattempt->security_flags = json_encode($securityresult);
+                $blockedattempt->timecreated    = time();
+                $DB->insert_record('aicode_attempts', $blockedattempt);
+
+                $messages = array_map(
+                    static function (array $v): string {
+                        return "[Baris {$v['line']}] {$v['message']}";
+                    },
+                    $securityresult['violations']
+                );
+
+                return [
+                    'result' => json_encode([
+                        'stdout'           => '',
+                        'stderr'           => implode("\n", $messages),
+                        'exitCode'         => -2,
+                        'trace'            => '',
+                        'security_blocked' => true,
+                        'risk_level'       => $securityresult['risk_level'],
+                        'violations'       => $securityresult['violations'],
+                    ]),
+                ];
+            }
+        }
+
         // Get executor URL from config.
         $executorurl = get_config('aicode', 'executor_url');
         if (empty($executorurl)) {
@@ -121,16 +168,27 @@ class run_code extends external_api {
 
         // Store attempt (anonymized if configured).
         $attempt = new \stdClass();
-        $attempt->problemid = $params['problemid'];
-        $attempt->userid = $problem->allow_training ? null : $USER->id;
+        $attempt->problemid   = $params['problemid'];
+        $attempt->userid      = $problem->allow_training ? null : $USER->id;
         $attempt->is_anonymous = $problem->allow_training ? 1 : 0;
-        $attempt->code_hash = hash('sha256', $params['code']);
-        $attempt->result_json = json_encode([
+        $attempt->code_hash   = hash('sha256', $params['code']);
+
+        $resultdata = [
             'exitCode' => $result['exitCode'] ?? -1,
-            'stdout' => substr($result['stdout'] ?? '', 0, 1000),
-            'stderr' => substr($result['stderr'] ?? '', 0, 1000),
-        ]);
-        $attempt->timecreated = time();
+            'stdout'   => substr($result['stdout'] ?? '', 0, 1000),
+            'stderr'   => substr($result['stderr'] ?? '', 0, 1000),
+        ];
+        // Store the actual code for identified (non-anonymous) attempts so
+        // teachers can review it in the report page.
+        if (!$problem->allow_training) {
+            $resultdata['code'] = substr($params['code'], 0, 20000);
+        }
+
+        $attempt->result_json    = json_encode($resultdata);
+        $attempt->security_flags = ($securityresult !== null && !$securityresult['safe'])
+            ? json_encode($securityresult)
+            : null;
+        $attempt->timecreated    = time();
         $DB->insert_record('aicode_attempts', $attempt);
 
         return [

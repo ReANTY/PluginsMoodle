@@ -17,17 +17,18 @@
 defined('MOODLE_INTERNAL') || die;
 
 if ($ADMIN->fulltree) {
-    $promptclass = '\mod_aicode\local\ai_prompt';
-    $defaultprompttemplate = '';
-    if (!class_exists($promptclass)) {
-        $prompthelperfile = __DIR__ . '/classes/local/ai_prompt.php';
-        if (is_readable($prompthelperfile)) {
-            require_once($prompthelperfile);
-        }
-    }
-    if (class_exists($promptclass)) {
-        $defaultprompttemplate = $promptclass::get_default_template();
-    }
+    // Gemini API key.
+    $settings->add(new admin_setting_configpasswordunmask('aicode/gemini_api_key',
+        get_string('geminiapikey', 'aicode'),
+        get_string('geminiapikey_desc', 'aicode'),
+        ''));
+
+    // Gemini model.
+    $settings->add(new admin_setting_configtext('aicode/gemini_model',
+        get_string('geminimodel', 'aicode'),
+        get_string('geminimodel_desc', 'aicode'),
+        'gemini-2.0-flash',
+        PARAM_TEXT));
 
     // Executor service URL.
     $settings->add(new admin_setting_configtext('aicode/executor_url',
@@ -40,7 +41,7 @@ if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configtextarea('aicode/ai_feedback_prompt_template',
         get_string('aifeedbackprompttemplate', 'aicode'),
         get_string('aifeedbackprompttemplate_desc', 'aicode'),
-        $defaultprompttemplate,
+        ' ',
         PARAM_RAW));
 
     // Confidence threshold for AI feedback.
@@ -70,5 +71,31 @@ if ($ADMIN->fulltree) {
         get_string('executiontimeout_desc', 'aicode'),
         '2',
         PARAM_INT));
+
+    // -------------------------------------------------------------------------
+    // Security Check Module
+    // -------------------------------------------------------------------------
+    $settings->add(new admin_setting_heading('aicode/security_heading',
+        get_string('securityheading', 'aicode'),
+        get_string('securityheading_desc', 'aicode')));
+
+    // Enable / disable server-side security check.
+    $settings->add(new admin_setting_configcheckbox('aicode/security_check_enabled',
+        get_string('securitycheckenabled', 'aicode'),
+        get_string('securitycheckenabled_desc', 'aicode'),
+        '1'));
+
+    // Minimum risk level that causes code to be blocked.
+    $blockleveloptions = [
+        'low'      => get_string('securitylevel_low', 'aicode'),
+        'medium'   => get_string('securitylevel_medium', 'aicode'),
+        'high'     => get_string('securitylevel_high', 'aicode'),
+        'critical' => get_string('securitylevel_critical', 'aicode'),
+    ];
+    $settings->add(new admin_setting_configselect('aicode/security_block_level',
+        get_string('securityblocklevel', 'aicode'),
+        get_string('securityblocklevel_desc', 'aicode'),
+        'high',
+        $blockleveloptions));
 }
 

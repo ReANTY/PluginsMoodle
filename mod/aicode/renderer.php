@@ -30,17 +30,39 @@ class mod_aicode_renderer extends plugin_renderer_base {
      * @return string HTML output
      */
     public function render_problem_view($aicode, $cm, $context) {
-        global $USER, $PAGE;
+        global $USER, $PAGE, $DB;
 
         $output = '';
 
         $isteacher = has_capability('mod/aicode:viewattempts', $context);
         $mode = $aicode->mode ?? 'training';
 
+        // In exam mode, check if this student has already submitted.
+        $hassubmitted = false;
+        $submittedcode = '';
+        if ($mode === 'exam' && !$isteacher) {
+            $existingattempts = $DB->get_records_select(
+                'aicode_attempts',
+                'problemid = :pid AND userid = :uid',
+                ['pid' => $aicode->id, 'uid' => $USER->id],
+                'timecreated DESC',
+                '*',
+                0, 20
+            );
+            foreach ($existingattempts as $existingattempt) {
+                $resultdata = json_decode($existingattempt->result_json, true);
+                if (!empty($resultdata['teacher_review_requested'])) {
+                    $hassubmitted = true;
+                    $submittedcode = $resultdata['code'] ?? '';
+                    break;
+                }
+            }
+        }
+
         // Display problem description.
         $output .= html_writer::start_div('aicode-problem-description');
         $output .= html_writer::div(
-            format_text($aicode->description ?? '', FORMAT_PLAIN, ['para' => false]),
+            format_text($aicode->description ?? '', FORMAT_HTML, ['para' => false]),
             'description'
         );
         $output .= html_writer::end_div();
@@ -85,6 +107,11 @@ class mod_aicode_renderer extends plugin_renderer_base {
             'style' => 'display:none;',
             'readonly' => 'readonly',
         ]);
+        $output .= html_writer::tag('textarea', s($submittedcode), [
+            'id' => 'aicode-submitted-code-raw',
+            'style' => 'display:none;',
+            'readonly' => 'readonly',
+        ]);
         $output .= html_writer::tag('div', '', [
             'id' => 'aicode-data',
             'data-problemid' => $aicode->id,
@@ -92,6 +119,7 @@ class mod_aicode_renderer extends plugin_renderer_base {
             'data-sesskey' => sesskey(),
             'data-mode' => $mode,
             'data-isteacher' => $isteacher ? '1' : '0',
+            'data-hassubmitted' => $hassubmitted ? '1' : '0',
         ]);
 
         // Load  editor AMD module.
@@ -105,35 +133,88 @@ class mod_aicode_renderer extends plugin_renderer_base {
             'sesskey' => sesskey(),
             'mode' => $mode,
             'isTeacher' => $isteacher,
+            'hasSubmitted' => $hassubmitted,
         ]);
         $PAGE->requires->js_init_code(<<<'JS'
 (function() {
+    // ── Reset button: restore starter code ──────────────────────────────────
     var resetBtn = document.getElementById('aicode-reset-btn');
-    var editor = document.getElementById('aicode-fallback-editor');
-    var raw = document.getElementById('aicode-starter-code-raw');
-    if (!resetBtn || !editor || !raw) {
-        return;
-    }
-    resetBtn.addEventListener('click', function() {
-        var before = editor.value;
-        window.setTimeout(function() {
-            var after = editor.value;
-            if (after === before) {
-                return;
-            }
-            if (after === '' || after === 'undefined') {
-                editor.value = raw.value || '';
-                var evt;
-                if (typeof Event === 'function') {
-                    evt = new Event('input', {bubbles: true});
-                } else {
-                    evt = document.createEvent('Event');
-                    evt.initEvent('input', true, true);
+    var editor   = document.getElementById('aicode-fallback-editor');
+    var raw      = document.getElementById('aicode-starter-code-raw');
+    if (resetBtn && editor && raw) {
+        resetBtn.addEventListener('click', function() {
+            var before = editor.value;
+            window.setTimeout(function() {
+                var after = editor.value;
+                if (after === before) { return; }
+                if (after === '' || after === 'undefined') {
+                    editor.value = raw.value || '';
+                    var evt;
+                    if (typeof Event === 'function') {
+                        evt = new Event('input', {bubbles: true});
+                    } else {
+                        evt = document.createEvent('Event');
+                        evt.initEvent('input', true, true);
+                    }
+                    editor.dispatchEvent(evt);
                 }
-                editor.dispatchEvent(evt);
+            }, 0);
+        });
+    }
+
+    // ── Toggle HTML/CSS template visibility ─────────────────────────────────
+    var toggleBtn = document.getElementById('aicode-toggle-templates');
+    var wrapper   = document.getElementById('aicode-templates-wrapper');
+    if (toggleBtn && wrapper) {
+        toggleBtn.addEventListener('click', function() {
+            var isOpen = toggleBtn.getAttribute('data-open') === '1';
+            if (isOpen) {
+                wrapper.style.display = 'none';
+                toggleBtn.setAttribute('data-open', '0');
+                toggleBtn.setAttribute('aria-expanded', 'false');
+                toggleBtn.textContent = 'Lihat HTML & CSS';
+            } else {
+                wrapper.style.display = 'block';
+                toggleBtn.setAttribute('data-open', '1');
+                toggleBtn.setAttribute('aria-expanded', 'true');
+                toggleBtn.textContent = 'Sembunyikan HTML & CSS';
             }
-        }, 0);
-    });
+        });
+    }
+
+    // ── Auto-preview on load when HTML/CSS templates are present ────────────
+    function buildInitialPreview() {
+        var frame   = document.getElementById('aicode-preview-iframe');
+        var htmlRaw = document.getElementById('aicode-html-template-raw');
+        var cssRaw  = document.getElementById('aicode-css-template-raw');
+        var edEl    = document.getElementById('aicode-fallback-editor');
+        if (!frame || (!htmlRaw && !cssRaw)) { return; }
+        var html = (htmlRaw && htmlRaw.value) ? htmlRaw.value : '';
+        var css  = (cssRaw  && cssRaw.value)  ? cssRaw.value  : '';
+        var js   = (edEl    && edEl.value)    ? edEl.value    : '';
+        if (!html.trim() && !css.trim()) { return; }
+        // Replicate the same srcdoc structure used by the AMD module.
+        var loopGuard = 'var __lpS=Date.now();window.__loopProtect=function(){'
+            + 'if(Date.now()-__lpS>500){throw new Error("Infinite loop guard");}};';
+        var safeJs = js.replace(/<\/script>/gi, '<\\/script>');
+        var srcdoc = '<!doctype html><html><head><meta charset="utf-8">'
+            + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            + '<style>' + css + '</style></head><body>' + html
+            + '<script>(function(){' + loopGuard + 'try{' + safeJs + '}catch(e){'
+            + 'parent.postMessage({source:"aicode-preview",type:"error",'
+            + 'payload:{message:e.message||String(e),stack:e.stack||""}}, "*");}'
+            + '})();<\/script></body></html>';
+        frame.srcdoc = srcdoc;
+    }
+
+    // Run after AMD module has initialised (it uses $(document).ready internally).
+    if (document.readyState === 'complete') {
+        setTimeout(buildInitialPreview, 150);
+    } else {
+        window.addEventListener('load', function() {
+            setTimeout(buildInitialPreview, 150);
+        });
+    }
 })();
 JS
         );
@@ -141,26 +222,66 @@ JS
         // Main layout.
         $output .= html_writer::start_div('aicode-layout');
 
-        // Templates row: HTML + CSS side by side.
-        $output .= html_writer::start_div('aicode-templates');
+        // Check if HTML/CSS templates exist.
+        $hashtml = !empty(trim($aicode->htmltemplate ?? ''));
+        $hascss  = !empty(trim($aicode->csstemplate ?? ''));
+        $hastemplates = $hashtml || $hascss;
 
-        $output .= html_writer::start_div('aicode-panel aicode-readonly-panel');
-        $output .= html_writer::tag('h4', get_string('htmlreadonly', 'aicode'));
-        $output .= html_writer::tag('pre', s($aicode->htmltemplate ?? ''), [
-            'id' => 'aicode-html-template',
-            'class' => 'aicode-readonly-code',
-        ]);
-        $output .= html_writer::end_div();
+        // Info notice: HTML & CSS provided by teacher.
+        if ($hastemplates) {
+            $output .= html_writer::start_div('aicode-template-notice');
+            $output .= html_writer::start_div('aicode-template-notice-body');
+            $output .= '<div class="aicode-template-notice-icon" aria-hidden="true">'
+                . '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="#d97706">'
+                . '<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17'
+                . ' 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a'
+                . '.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>'
+                . '</svg>'
+                . '</div>';
+            $output .= html_writer::start_div('aicode-template-notice-text');
+            $output .= html_writer::tag('strong', 'Kode HTML &amp; CSS sudah disediakan oleh soal');
+            $output .= html_writer::tag(
+                'span',
+                'Kamu hanya perlu menulis kode <strong>JavaScript</strong> sesuai instruksi soal.'
+                . ' Kode HTML dan CSS bersifat <em>read-only</em> dan tidak dapat diubah.',
+                ['class' => 'aicode-template-notice-desc']
+            );
+            $output .= html_writer::end_div();
+            $output .= html_writer::end_div();
+            $output .= html_writer::tag('button', 'Lihat HTML &amp; CSS', [
+                'id'          => 'aicode-toggle-templates',
+                'class'       => 'btn btn-sm btn-outline-secondary aicode-toggle-btn',
+                'type'        => 'button',
+                'data-open'   => '0',
+                'aria-expanded' => 'false',
+            ]);
+            $output .= html_writer::end_div();
+        }
 
-        $output .= html_writer::start_div('aicode-panel aicode-readonly-panel');
-        $output .= html_writer::tag('h4', get_string('cssreadonly', 'aicode'));
-        $output .= html_writer::tag('pre', s($aicode->csstemplate ?? ''), [
-            'id' => 'aicode-css-template',
-            'class' => 'aicode-readonly-code',
-        ]);
-        $output .= html_writer::end_div();
+        // Templates row: only render when there is actual HTML or CSS content.
+        if ($hastemplates) {
+            $output .= '<div class="aicode-templates-wrapper" id="aicode-templates-wrapper" style="display:none;">';
+            $output .= html_writer::start_div('aicode-templates');
 
-        $output .= html_writer::end_div();
+            $output .= html_writer::start_div('aicode-panel aicode-readonly-panel');
+            $output .= html_writer::tag('h4', get_string('htmlreadonly', 'aicode'));
+            $output .= html_writer::tag('pre', s($aicode->htmltemplate ?? ''), [
+                'id' => 'aicode-html-template',
+                'class' => 'aicode-readonly-code',
+            ]);
+            $output .= html_writer::end_div();
+
+            $output .= html_writer::start_div('aicode-panel aicode-readonly-panel');
+            $output .= html_writer::tag('h4', get_string('cssreadonly', 'aicode'));
+            $output .= html_writer::tag('pre', s($aicode->csstemplate ?? ''), [
+                'id' => 'aicode-css-template',
+                'class' => 'aicode-readonly-code',
+            ]);
+            $output .= html_writer::end_div();
+
+            $output .= html_writer::end_div();
+            $output .= '</div>';
+        }
 
         $output .= html_writer::start_div('aicode-panel aicode-js-panel');
         $output .= html_writer::tag('h4', 'JavaScript');
@@ -171,6 +292,11 @@ JS
         ]);
         $output .= html_writer::start_div('aicode-editor-stack');
         $output .= html_writer::start_div('aicode-highlight', ['id' => 'aicode-highlight']);
+        $output .= html_writer::tag('div', '', [
+            'id'    => 'aicode-active-line',
+            'class' => 'aicode-active-line',
+            'style' => 'display:none',
+        ]);
         $output .= html_writer::tag('pre', '', [
             'id' => 'aicode-highlight-code',
             'class' => 'aicode-highlight-code',
@@ -184,7 +310,6 @@ JS
         ]);
         $output .= html_writer::end_div();
         $output .= html_writer::end_div();
-        $output .= html_writer::div('', 'monaco-editor', ['id' => 'aicode-monaco-editor']);
         $output .= html_writer::end_div();
 
         // Control buttons below JS editor.
@@ -216,8 +341,11 @@ JS
         ]);
         $output .= html_writer::end_div();
 
-        $output .= html_writer::start_div('aicode-panel aicode-preview-panel');
-        $output .= html_writer::tag('h4', get_string('preview', 'aicode'));
+        $previewpanelattrs = $hastemplates ? [] : ['style' => 'display:none'];
+        $output .= html_writer::start_div('aicode-preview-panel', $previewpanelattrs);
+        $output .= '<div class="aicode-output-header">';
+        $output .= '<span class="aicode-output-title">PREVIEW</span>';
+        $output .= '</div>';
         $output .= html_writer::tag('iframe', '', [
             'id' => 'aicode-preview-iframe',
             'class' => 'aicode-preview-iframe',
@@ -226,11 +354,60 @@ JS
         ]);
         $output .= html_writer::end_div();
 
-        $output .= html_writer::start_div('aicode-panel aicode-error-feedback-panel');
-        $output .= html_writer::tag('h4', get_string('erroraifeedback', 'aicode'));
-        $output .= html_writer::tag('pre', '', ['id' => 'aicode-errors', 'class' => 'error-box']);
+        // Output panel — console.log/info results, hidden until code is run.
+        $output .= '<div class="aicode-output-panel" id="aicode-output-panel" style="display:none">';
+        $output .= '<div class="aicode-output-header">';
+        $output .= '<span class="aicode-output-title">OUTPUT</span>';
+        $output .= '<span class="aicode-output-count" id="aicode-output-count"></span>';
+        $output .= '</div>';
+        $output .= '<div class="aicode-output-list" id="aicode-output-list"></div>';
+        $output .= '</div>';
+
+        // Compute JS filename from activity name (e.g. "Latihan 7: DOM" → "latihan_7_dom.js").
+        $activityname = $aicode->name ?? 'student_code';
+        $jsfilename = strtolower($activityname);
+        $jsfilename = preg_replace('/[^a-z0-9]+/', '_', $jsfilename);
+        $jsfilename = trim($jsfilename, '_');
+        $jsfilename = substr($jsfilename, 0, 40);
+        if (empty($jsfilename)) {
+            $jsfilename = 'student_code';
+        }
+        $jsfilename .= '.js';
+
+        // Problems panel (VS Code style).
+        $output .= '<div class="aicode-problems-panel">';
+        $output .= '<div class="aicode-problems-header">';
+        $output .= '<span class="aicode-problems-title">PROBLEMS</span>';
+        $output .= '<span class="aicode-problems-badges">';
+        $output .= '<span class="aicode-problems-badge aicode-badge-error" id="aicode-badge-error" style="display:none"></span>';
+        $output .= '<span class="aicode-problems-badge aicode-badge-warn"  id="aicode-badge-warn"  style="display:none"></span>';
+        $output .= '<span class="aicode-problems-badge aicode-badge-info"  id="aicode-badge-info"  style="display:none"></span>';
+        $output .= '</span>';
+        $output .= '</div>';
+        $output .= '<div class="aicode-problems-group" id="aicode-problems-group" style="display:none">';
+        $output .= '<div class="aicode-problems-file-header">';
+        $output .= '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" class="aicode-file-chevron" id="aicode-file-chevron">';
+        $output .= '<path d="M2 3l3 4 3-4" stroke="#858585" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>';
+        $output .= '</svg>';
+        $output .= '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">';
+        $output .= '<rect x="2" y="1" width="9" height="14" rx="1" fill="#569cd6" opacity="0.15"/>';
+        $output .= '<rect x="2" y="1" width="9" height="14" rx="1" stroke="#569cd6" stroke-width="1"/>';
+        $output .= '<path d="M5 5h6M5 8h6M5 11h4" stroke="#569cd6" stroke-width="1" stroke-linecap="round"/>';
+        $output .= '</svg>';
+        $output .= '<span class="aicode-problems-filename">' . htmlspecialchars($jsfilename) . '</span>';
+        $output .= '<span class="aicode-problems-file-count" id="aicode-problems-file-count"></span>';
+        $output .= '</div>';
+        $output .= '<div class="aicode-problems-list" id="aicode-errors"></div>';
+        $output .= '</div>';
+        $output .= '<div class="aicode-problems-empty is-visible" id="aicode-problems-empty">Tidak ada masalah terdeteksi.</div>';
+        $output .= '</div>';
+
+        $output .= '<div class="aicode-feedback-panel">';
+        $output .= '<div class="aicode-output-header">';
+        $output .= '<span class="aicode-output-title">FEEDBACK</span>';
+        $output .= '</div>';
         $output .= html_writer::div('', 'feedback-box', ['id' => 'aicode-feedback']);
-        $output .= html_writer::end_div();
+        $output .= '</div>';
 
         $output .= html_writer::end_div();
 
@@ -300,6 +477,63 @@ JS
                 gap: 16px;
                 margin-top: 8px;
             }
+            /* Template notice banner */
+            .aicode-template-notice {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                background: #fffbeb;
+                border: 1px solid #fde68a;
+                border-radius: 0.5rem;
+                padding: 10px 14px;
+                flex-wrap: wrap;
+            }
+            .aicode-template-notice-body {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            .aicode-template-notice-icon {
+                flex-shrink: 0;
+                display: flex;
+                align-items: flex-start;
+                margin-top: 1px;
+            }
+            .aicode-template-notice-text {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .aicode-template-notice-text strong {
+                font-size: 0.875rem;
+                color: #92400e;
+                font-weight: 600;
+            }
+            .aicode-template-notice-desc {
+                font-size: 0.8125rem;
+                color: #78350f;
+                line-height: 1.5;
+            }
+            .aicode-toggle-btn {
+                flex-shrink: 0;
+                white-space: nowrap;
+                border-color: #d97706;
+                color: #92400e;
+                font-size: 0.8rem;
+                padding: 4px 12px;
+                transition: background 0.15s, color 0.15s;
+            }
+            .aicode-toggle-btn:hover {
+                background: #fde68a;
+                border-color: #d97706;
+                color: #78350f;
+            }
+            .aicode-templates-wrapper {
+                overflow: hidden;
+            }
             .aicode-templates {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -366,17 +600,6 @@ JS
             .aicode-controls button {
                 margin-right: 0;
                 margin-bottom: 0;
-            }
-            .monaco-editor {
-                height: 460px;
-                border: 1px solid #dee2e6;
-                background: #ffffff;
-                border-radius: 0.5rem;
-                display: none;
-            }
-            .aicode-js-panel .monaco-editor {
-                border-color: #b6d4fe;
-                box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.1);
             }
             .aicode-textarea-wrap {
                 --editor-bg: #f8f9fa;
@@ -491,30 +714,239 @@ JS
             .aicode-fallback-editor::selection {
                 background: rgba(13, 110, 253, 0.2);
             }
+            .aicode-preview-panel {
+                background: #1e1e1e;
+                border: 1px solid #3e3e3e;
+                border-radius: 0.375rem;
+                overflow: hidden;
+                margin-bottom: 8px;
+            }
+            .aicode-preview-panel .aicode-output-header {
+                margin-bottom: 0;
+            }
             .aicode-preview-iframe {
                 width: 100%;
                 height: 100%;
                 min-height: 420px;
-                border: 1px solid #dee2e6;
-                border-radius: 0.5rem;
+                border: none;
+                border-top: 1px solid #3e3e3e;
+                border-radius: 0;
                 background: #ffffff;
+                display: block;
             }
-            .error-box {
-                background: #f8d7da;
-                color: #842029;
-                padding: 10px;
-                border: 1px solid #f5c2c7;
-                border-radius: 0.5rem;
-                min-height: 200px;
-                font-family: monospace;
+            /* Output panel (console.log / console.info) */
+            .aicode-output-panel {
+                background: #1e1e1e;
+                border: 1px solid #3e3e3e;
+                border-radius: 0.375rem;
+                overflow: hidden;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 0.8125rem;
+                margin-bottom: 8px;
+            }
+            .aicode-output-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 5px 10px;
+                background: #252526;
+                border-bottom: 1px solid #3e3e3e;
+                user-select: none;
+            }
+            .aicode-output-title {
+                font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-size: 0.68rem;
+                font-weight: 700;
+                color: #cccccc;
+                letter-spacing: 0.07em;
+                text-transform: uppercase;
+            }
+            .aicode-output-count {
+                font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-size: 0.72rem;
+                color: #858585;
+                font-weight: 400;
+                margin-left: auto;
+            }
+            .aicode-output-list {
+                padding: 4px 0;
+                max-height: 200px;
+                overflow-y: auto;
+            }
+            .aicode-output-line {
+                display: block;
+                padding: 3px 14px;
+                color: #d4d4d4;
+                border-bottom: 1px solid #2a2a2a;
                 white-space: pre-wrap;
+                word-break: break-all;
+                line-height: 1.5;
+            }
+            .aicode-output-line:last-child {
+                border-bottom: none;
+            }
+            .aicode-output-info {
+                color: #4ec9b0;
+            }
+            /* VS Code Problems panel */
+            .aicode-problems-panel {
+                background: #1e1e1e;
+                border: 1px solid #3e3e3e;
+                border-radius: 0.375rem;
+                overflow: hidden;
+                min-height: 180px;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 0.8125rem;
+                margin-bottom: 8px;
+            }
+            .aicode-problems-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 5px 10px;
+                background: #252526;
+                border-bottom: 1px solid #3e3e3e;
+                user-select: none;
+            }
+            .aicode-problems-title {
+                font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-size: 0.68rem;
+                font-weight: 700;
+                color: #cccccc;
+                letter-spacing: 0.07em;
+                text-transform: uppercase;
+            }
+            .aicode-problems-badges {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-left: auto;
+            }
+            .aicode-problems-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-size: 0.78rem;
+                font-weight: 500;
+                line-height: 1;
+            }
+            .aicode-badge-error { color: #f14c4c; }
+            .aicode-badge-warn  { color: #cca700; }
+            .aicode-badge-info  { color: #3794ff; }
+            .aicode-problems-file-header {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 5px 10px 5px 8px;
+                color: #cccccc;
+                font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-size: 0.8rem;
+                font-weight: 600;
+                background: #252526;
+                border-bottom: 1px solid #3e3e3e;
+                cursor: default;
+                user-select: none;
+            }
+            .aicode-file-chevron {
+                flex-shrink: 0;
+            }
+            .aicode-problems-filename {
+                color: #e0e0e0;
+                flex: 1 1 auto;
+            }
+            .aicode-problems-file-count {
+                font-size: 0.72rem;
+                color: #858585;
+                font-weight: 400;
+            }
+            .aicode-problems-list {
+                padding: 2px 0;
+            }
+            .aicode-problem-item {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                padding: 4px 12px 4px 22px;
+                cursor: default;
+                line-height: 1.5;
+                border-left: 2px solid transparent;
+                transition: background 0.08s;
+            }
+            .aicode-problem-item:hover {
+                background: #2a2d2e;
+            }
+            .aicode-problem-item.aicode-problem-error  { border-left-color: transparent; }
+            .aicode-problem-item.aicode-problem-warning { border-left-color: transparent; }
+            .aicode-problem-icon {
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                padding-top: 2px;
+            }
+            .aicode-problem-message {
+                flex: 1 1 auto;
+                color: #d4d4d4;
+                word-break: break-word;
+            }
+            .aicode-problem-location {
+                flex-shrink: 0;
+                color: #858585;
+                font-size: 0.75rem;
+                padding-left: 8px;
+                white-space: nowrap;
+                align-self: flex-start;
+                padding-top: 3px;
+            }
+            .aicode-problems-empty {
+                padding: 18px 20px;
+                color: #6c6c6c;
+                font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-size: 0.8125rem;
+                display: none;
+            }
+            .aicode-problems-empty.is-visible {
+                display: block;
+            }
+            /* Problem item is clickable when it has a line reference */
+            .aicode-problem-item[data-line] {
+                cursor: pointer;
+            }
+            .aicode-problem-item[data-line]:hover .aicode-problem-message {
+                text-decoration: underline;
+                text-underline-offset: 2px;
+            }
+            .aicode-problem-item.is-active {
+                background: #37373d;
+            }
+            /* Active-line highlight strip inside the editor */
+            .aicode-active-line {
+                position: absolute;
+                left: 0;
+                right: 0;
+                background: rgba(255, 200, 50, 0.10);
+                border-left: 3px solid #f14c4c;
+                pointer-events: none;
+                z-index: 1;
+                transition: top 0.12s ease, opacity 0.15s;
+            }
+            /* Feedback panel */
+            .aicode-feedback-panel {
+                background: #1e1e1e;
+                border: 1px solid #3e3e3e;
+                border-radius: 0.375rem;
+                overflow: hidden;
+            }
+            .aicode-feedback-panel .aicode-output-header {
+                margin-bottom: 0;
             }
             .feedback-box {
                 background: #e7f1ff;
                 color: #084298;
                 padding: 10px;
-                border: 1px solid #b6d4fe;
-                border-radius: 0.5rem;
+                border: none;
+                border-top: 1px solid #3e3e3e;
+                border-radius: 0;
                 min-height: 220px;
             }
             .aicode-history-header {
@@ -633,9 +1065,6 @@ JS
             @media (max-width: 980px) {
                 .aicode-templates {
                     grid-template-columns: 1fr;
-                }
-                .monaco-editor {
-                    height: 360px;
                 }
                 .aicode-fallback-editor {
                     height: 360px;
