@@ -24,7 +24,8 @@ RUN apt-get update && apt-get install -y \
       soap \
       zip \
       opcache \
-    && a2enmod rewrite \
+    && a2dismod mpm_event mpm_worker || true \
+    && a2enmod mpm_prefork rewrite \
     && rm -rf /var/lib/apt/lists/*
 
 # Moodle commonly needs this to allow .htaccess rules.
