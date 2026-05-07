@@ -91,6 +91,15 @@ class get_run_history extends external_api {
             ];
         }
 
+        \mod_aicode\local\activity_log::record(
+            $context,
+            (int) $params['problemid'],
+            (int) $USER->id,
+            \mod_aicode\local\activity_log::ACTION_RUN_HISTORY_VIEW,
+            ['entries_count' => count($history)],
+            $problem
+        );
+
         return ['history' => json_encode($history)];
     }
 

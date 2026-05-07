@@ -124,6 +124,17 @@ class analyze_code extends external_api {
                 if ($latestattempt) {
                     $DB->set_field('aicode_attempts', 'ai_requested_at', time(), ['id' => $latestattempt->id]);
                 }
+                \mod_aicode\local\activity_log::record(
+                    $context,
+                    (int) $params['problemid'],
+                    (int) $USER->id,
+                    \mod_aicode\local\activity_log::ACTION_AI_ANALYZE,
+                    [
+                        'from_cache' => true,
+                        'outcome' => 'success',
+                    ],
+                    $problem
+                );
                 return ['feedback' => $cached->ai_response_json];
             }
         }
@@ -193,6 +204,29 @@ class analyze_code extends external_api {
                 $DB->set_field('aicode_attempts', 'ai_feedback_json', $feedbackjson, ['id' => $latestattempt->id]);
             }
         }
+
+        $fbdecoded = json_decode($feedbackjson, true);
+        $outcome = (is_array($fbdecoded) && (($fbdecoded['status'] ?? '') === 'success')) ? 'success' : 'error';
+        $metaline = [];
+        if (is_array($fbdecoded)) {
+            $errdata = $fbdecoded['error'] ?? null;
+            $errcode = (is_array($errdata) && isset($errdata['code'])) ? $errdata['code'] : '';
+            if (is_scalar($errcode) && (string) $errcode !== '') {
+                $metaline['error_code'] = (string) $errcode;
+            }
+        }
+
+        \mod_aicode\local\activity_log::record(
+            $context,
+            (int) $params['problemid'],
+            (int) $USER->id,
+            \mod_aicode\local\activity_log::ACTION_AI_ANALYZE,
+            array_merge([
+                'from_cache' => false,
+                'outcome' => $outcome,
+            ], $metaline),
+            $problem
+        );
 
         return ['feedback' => $feedbackjson];
     }

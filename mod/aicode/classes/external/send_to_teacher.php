@@ -75,6 +75,14 @@ class send_to_teacher extends external_api {
                 ['problemid' => $params['problemid'], 'userid' => $USER->id, 'teacher_review_requested' => 1]
             );
             if ($alreadysubmitted) {
+                \mod_aicode\local\activity_log::record(
+                    $context,
+                    (int) $params['problemid'],
+                    (int) $USER->id,
+                    \mod_aicode\local\activity_log::ACTION_SEND_TO_TEACHER,
+                    ['success' => false, 'already_submitted' => true, 'mode' => 'exam'],
+                    $problem
+                );
                 return ['success' => false, 'already_submitted' => true];
             }
         }
@@ -93,6 +101,19 @@ class send_to_teacher extends external_api {
         ]);
         $attempt->timecreated = time();
         $DB->insert_record('aicode_attempts', $attempt);
+
+        \mod_aicode\local\activity_log::record(
+            $context,
+            (int) $params['problemid'],
+            (int) $USER->id,
+            \mod_aicode\local\activity_log::ACTION_SEND_TO_TEACHER,
+            [
+                'success' => true,
+                'already_submitted' => false,
+                'mode' => (string) ($problem->mode ?? 'training'),
+            ],
+            $problem
+        );
 
         return ['success' => true, 'already_submitted' => false];
     }

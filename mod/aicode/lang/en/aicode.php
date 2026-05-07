@@ -158,7 +158,77 @@ $string['privacy:metadata:aicode_attempts'] = 'Information about student code su
 $string['privacy:metadata:aicode_attempts:userid'] = 'User ID of the student';
 $string['privacy:metadata:aicode_attempts:code_hash'] = 'Hash of submitted code';
 $string['privacy:metadata:aicode_attempts:timecreated'] = 'Time when the attempt was made';
+$string['privacy:metadata:aicode_activity_log'] = 'Metadata-only log of actions in AICode (no source code stored here)';
+$string['privacy:metadata:aicode_activity_log:id_pengguna'] = 'User who performed the action';
+$string['privacy:metadata:aicode_activity_log:id_kursus'] = 'Course id of the activity';
+$string['privacy:metadata:aicode_activity_log:id_aktivitas_aicode'] = 'AICode activity instance id';
+$string['privacy:metadata:aicode_activity_log:kode_kejadian'] = 'Event type code (internal)';
+$string['privacy:metadata:aicode_activity_log:metadata_json'] = 'Optional JSON metadata without source code';
+$string['privacy:metadata:aicode_activity_log:nama_lengkap'] = 'Full name copied at event time';
+$string['privacy:metadata:aicode_activity_log:mode_aktivitas'] = 'Whether the activity was in training or exam mode when logged';
+$string['privacy:metadata:aicode_activity_log:jumlah_ai_hint'] = 'Cumulative AI Hint requests logged up to and including this event';
+$string['privacy:metadata:aicode_activity_log:jumlah_run'] = 'Cumulative run executions (estimated from attempts and log)';
+$string['privacy:metadata:aicode_activity_log:jumlah_kirim_guru'] = 'Cumulative submissions to teacher recorded in attempts';
+$string['privacy:metadata:aicode_activity_log:nilai_snapshot'] = 'Numeric gradebook value (0–100) at log time when present';
+$string['privacy:metadata:aicode_activity_log:waktu_dicatat'] = 'When the row was logged';
 $string['privacy:metadata:external:moodleai'] = 'AICode sends anonymized code snippets and execution errors to the Moodle AI provider (for example Ollama) for analysis.';
 $string['privacy:metadata:external:moodleai:code'] = 'Anonymized code snippet';
 $string['privacy:metadata:external:moodleai:errors'] = 'Execution errors (anonymized)';
+
+// Metadata activity log (site admin CSV export / GDPR).
+$string['activitylog_pagetitle'] = 'AICode metadata activity log';
+$string['activitylog_exportheading'] = 'Export activity log (CSV)';
+$string['activitylog_exportdesc'] = 'Download a UTF-8 CSV of server-side events. Includes snapshot columns such as student name (at event time), training/exam mode, cumulative AI Hint uses, cumulative runs (Run + blocked counted), cumulative teacher submits, and the score if already set in the gradebook. No student source code is stored.';
+$string['activitylog_filterheading'] = 'Filters';
+$string['activitylog_course'] = 'Course';
+$string['activitylog_datefrom'] = 'From date (optional, YYYY-MM-DD)';
+$string['activitylog_dateto'] = 'To date (optional, YYYY-MM-DD)';
+$string['activitylog_applyfilters'] = 'Apply filters';
+$string['activitylog_exportfiltered'] = 'Download using current filters:';
+$string['activitylog_downloadcsv'] = 'Download CSV';
+$string['activitylog_purgeheading'] = 'Delete log rows';
+$string['activitylog_purgedesc'] = 'Deletes rows in the activity log that match the filters above. Student attempts in the attempts table are not removed.';
+$string['activitylog_purge_checkbox'] = 'I confirm I want to permanently delete the matching log rows.';
+$string['activitylog_purge_submit'] = 'Delete matching log rows';
+$string['activitylog_purged'] = 'Matching activity log rows were deleted.';
+$string['activitylog_purge_needconfirm'] = 'You must tick the confirmation box before log rows can be deleted.';
+$string['activitylog_manage_heading'] = 'Research activity log';
+$string['activitylog_manage_heading_desc'] = 'Administrators can export or delete metadata-only activity logs for research (page views, runs, AI hints, send to teacher, run history requests).';
+$string['activitylog_manage_link'] = 'Open activity log management…';
+
+// Indonesian activity-log UI/CSV falls back here if lang id is unavailable.
+$string['activitylog_allcourses'] = 'All courses';
+
+// CSV column headings (Bahasa Indonesia in lang/id via same keys).
+$string['activitylog_csv_col_id'] = 'ID';
+$string['activitylog_csv_col_time_iso'] = 'Time';
+$string['activitylog_csv_col_userid'] = 'User ID';
+$string['activitylog_csv_col_username'] = 'Username';
+$string['activitylog_csv_col_email'] = 'Email';
+$string['activitylog_csv_col_userfullname'] = 'Full name (snapshot)';
+$string['activitylog_csv_col_activitymode'] = 'Activity mode';
+$string['activitylog_csv_col_aihint'] = 'AI Hint count (cumulative)';
+$string['activitylog_csv_col_runs'] = 'Run count (cumulative)';
+$string['activitylog_csv_col_teacher_submit'] = 'Send-to-teacher count (cumulative)';
+$string['activitylog_csv_col_grade'] = 'Grade (snapshot)';
+$string['activitylog_csv_col_courseid'] = 'Course ID';
+$string['activitylog_csv_col_courseshort'] = 'Course short name';
+$string['activitylog_csv_col_coursefull'] = 'Course full name';
+$string['activitylog_csv_col_cmid'] = 'Module ID';
+$string['activitylog_csv_col_problemid'] = 'AICode activity ID';
+$string['activitylog_csv_col_activityname'] = 'Activity name';
+$string['activitylog_csv_col_action_code'] = 'Event code';
+$string['activitylog_csv_col_action_label'] = 'Event description';
+$string['activitylog_csv_col_meta_json'] = 'Additional metadata (JSON)';
+
+$string['activitylog_mode_training_label'] = 'Training';
+$string['activitylog_mode_exam_label'] = 'Exam';
+
+$string['activitylog_action_activity_view'] = 'Opened activity page';
+$string['activitylog_action_code_run'] = 'Ran code (executor)';
+$string['activitylog_action_code_run_blocked'] = 'Run blocked (security)';
+$string['activitylog_action_ai_analyze'] = 'Requested AI Hint / AI analysis';
+$string['activitylog_action_hint_recorded'] = 'Recorded built-in hint use';
+$string['activitylog_action_send_to_teacher'] = 'Sent work to teacher';
+$string['activitylog_action_run_history_view'] = 'Opened run history';
 

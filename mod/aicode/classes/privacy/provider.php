@@ -48,6 +48,25 @@ class provider implements
             'privacy:metadata:aicode_attempts'
         );
 
+        $collection->add_database_table(
+            'aicode_activity_log',
+            [
+                'id_pengguna' => 'privacy:metadata:aicode_activity_log:id_pengguna',
+                'id_kursus' => 'privacy:metadata:aicode_activity_log:id_kursus',
+                'id_aktivitas_aicode' => 'privacy:metadata:aicode_activity_log:id_aktivitas_aicode',
+                'kode_kejadian' => 'privacy:metadata:aicode_activity_log:kode_kejadian',
+                'metadata_json' => 'privacy:metadata:aicode_activity_log:metadata_json',
+                'nama_lengkap' => 'privacy:metadata:aicode_activity_log:nama_lengkap',
+                'mode_aktivitas' => 'privacy:metadata:aicode_activity_log:mode_aktivitas',
+                'jumlah_ai_hint' => 'privacy:metadata:aicode_activity_log:jumlah_ai_hint',
+                'jumlah_run' => 'privacy:metadata:aicode_activity_log:jumlah_run',
+                'jumlah_kirim_guru' => 'privacy:metadata:aicode_activity_log:jumlah_kirim_guru',
+                'nilai_snapshot' => 'privacy:metadata:aicode_activity_log:nilai_snapshot',
+                'waktu_dicatat' => 'privacy:metadata:aicode_activity_log:waktu_dicatat',
+            ],
+            'privacy:metadata:aicode_activity_log'
+        );
+
         $collection->add_external_location_link(
             'moodleai',
             [
@@ -84,6 +103,16 @@ class provider implements
         ];
 
         $contextlist->add_from_sql($sql, $params);
+
+        $sqllogs = "SELECT c.id
+                  FROM {context} c
+            INNER JOIN {course_modules} cm ON cm.id = c.instanceid AND c.contextlevel = :contextlevel
+            INNER JOIN {modules} m ON m.id = cm.module AND m.name = :modname
+            INNER JOIN {aicode} ap ON ap.id = cm.instance
+            INNER JOIN {aicode_activity_log} lg ON lg.id_aktivitas_aicode = ap.id
+                 WHERE lg.id_pengguna = :userid";
+
+        $contextlist->add_from_sql($sqllogs, $params);
 
         return $contextlist;
     }
@@ -134,6 +163,38 @@ class provider implements
             writer::with_context($context)->export_data([], $data);
         }
         $attempts->close();
+
+        $sqllogs = "SELECT cm.id AS cmid,
+                           lg.*
+                      FROM {context} c
+                INNER JOIN {course_modules} cm ON cm.id = c.instanceid AND c.contextlevel = :contextlevel
+                INNER JOIN {modules} m ON m.id = cm.module AND m.name = :modname
+                INNER JOIN {aicode} ap ON ap.id = cm.instance
+                INNER JOIN {aicode_activity_log} lg ON lg.id_aktivitas_aicode = ap.id
+                     WHERE c.id {$contextsql}
+                           AND lg.id_pengguna = :userid
+                  ORDER BY cm.id";
+
+        $logs = $DB->get_recordset_sql($sqllogs, $params);
+        foreach ($logs as $log) {
+            $context = \context_module::instance($log->cmid);
+            $ldata = (object) [
+                'waktu_dicatat' => \core_privacy\local\request\transform::datetime($log->waktu_dicatat),
+                'kode_kejadian' => $log->kode_kejadian ?? '',
+                'metadata' => $log->metadata_json ?? '',
+                'nama_lengkap_snapshot' => $log->nama_lengkap ?? '',
+                'mode_aktivitas' => $log->mode_aktivitas ?? '',
+                'jumlah_ai_hint' => $log->jumlah_ai_hint ?? '',
+                'jumlah_run' => $log->jumlah_run ?? '',
+                'jumlah_kirim_guru' => $log->jumlah_kirim_guru ?? '',
+                'nilai_snapshot' => $log->nilai_snapshot ?? '',
+            ];
+            writer::with_context($context)->export_data(
+                ['metadata-activity-log', 'entry-' . $log->id],
+                $ldata
+            );
+        }
+        $logs->close();
     }
 
     /**
@@ -154,6 +215,7 @@ class provider implements
         }
 
         $DB->delete_records('aicode_attempts', ['problemid' => $cm->instance]);
+        $DB->delete_records('aicode_activity_log', ['id_aktivitas_aicode' => $cm->instance]);
     }
 
     /**
@@ -180,6 +242,10 @@ class provider implements
             $DB->delete_records('aicode_attempts', [
                 'problemid' => $cm->instance,
                 'userid' => $userid,
+            ]);
+            $DB->delete_records('aicode_activity_log', [
+                'id_aktivitas_aicode' => $cm->instance,
+                'id_pengguna' => $userid,
             ]);
         }
     }

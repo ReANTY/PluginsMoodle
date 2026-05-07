@@ -97,5 +97,12 @@ if ($ADMIN->fulltree) {
         get_string('securityblocklevel_desc', 'aicode'),
         'high',
         $blockleveloptions));
+
+    // Metadata activity log (research export — site admins only; no source code stored).
+    $logurl = new moodle_url('/mod/aicode/activity_log_manage.php');
+    $loglink = html_writer::link($logurl, get_string('activitylog_manage_link', 'aicode'));
+    $settings->add(new admin_setting_description('aicode/activity_log_heading',
+        get_string('activitylog_manage_heading', 'aicode'),
+        get_string('activitylog_manage_heading_desc', 'aicode') . '<br /><br />' . $loglink));
 }
 

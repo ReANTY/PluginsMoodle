@@ -37,6 +37,15 @@ require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
 
+\mod_aicode\local\activity_log::record(
+    $context,
+    (int) $aicode->id,
+    (int) $USER->id,
+    \mod_aicode\local\activity_log::ACTION_ACTIVITY_VIEW,
+    [],
+    $aicode
+);
+
 $event = \mod_aicode\event\course_module_viewed::create([
     'objectid' => $aicode->id,
     'context' => $context,

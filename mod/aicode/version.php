@@ -24,9 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026041401;        // YYYYMMDDXX format for Moodle 5.0+.
+$plugin->version   = 2026042920;        // YYYYMMDDXX format for Moodle 5.0+.
 $plugin->requires  = 2025041400;         // Requires Moodle 5.0 (Build: 20250414).
 $plugin->component = 'mod_aicode';      // Full component name.
 $plugin->maturity  = MATURITY_BETA;
-$plugin->release   = '1.6.0';
+$plugin->release   = '1.9.0';
 

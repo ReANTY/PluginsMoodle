@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lampiran Instrumen Penelitian – AICode SMK</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    background: #fff;
+    color: #000;
+    padding: 40px 56px;
+    font-size: 11pt;
+  }
+  .lampiran-label { font-weight: bold; margin-bottom: 16px; }
+  .doc-title { text-align: center; margin-bottom: 18px; line-height: 1.65; }
+  .doc-title p { font-weight: bold; font-size: 12pt; text-transform: uppercase; }
+  .info-block { margin-bottom: 16px; }
+  .info-block table { width: 100%; border: none; font-size: 11pt; }
+  .info-block td { border: none; padding: 2px 4px; vertical-align: top; }
+  .info-block td.lbl { width: 140px; white-space: nowrap; }
+  .info-block td.sep { width: 12px; text-align: center; }
+  .table-wrap { margin-top: 10px; }
+  table.uji {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5pt;
+    font-family: 'Times New Roman', Times, serif;
+  }
+  table.uji th, table.uji td {
+    border: 1px solid #000;
+    padding: 5px 7px;
+    vertical-align: top;
+  }
+  table.uji thead th { text-align: center; font-weight: bold; vertical-align: middle; }
+  table.uji td.center { text-align: center; }
+  table.uji td.narrow { width: 36px; text-align: center; }
+  table.uji td.tiny { width: 34px; text-align: center; }
+  table.uji tr.dimensi td {
+    font-weight: bold;
+    background: #f5f5f5;
+    text-align: left;
+    font-style: italic;
+    padding: 6px 7px;
+  }
+  table.uji td.answer-space { min-height: 140px; height: auto; padding-bottom: 80px; }
+  .subtitle { font-weight: bold; margin: 18px 0 8px; font-size: 11pt; }
+  .muted { font-size: 10pt; font-style: italic; }
+  .section-break {
+    margin-top: 48px;
+    padding-top: 36px;
+    border-top: 2px solid #ddd;
+    page-break-before: always;
+  }
+  .kesimpulan, .catatan-mini { margin-top: 16px; font-size: 10.5pt; line-height: 1.65; }
+  .signature-block {
+    margin-top: 28px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .signature-inner { text-align: center; width: 260px; font-size: 11pt; }
+  .signature-inner .sig-place { margin-bottom: 56px; }
+  .signature-inner .sig-name { font-weight: bold; border-top: 1px solid #000; padding-top: 4px; margin-top: 8px; }
+  .doc-footer { margin-top: 20px; text-align: center; font-size: 9pt; color: #555; }
+  pre.code {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 9.5pt;
+    margin: 4px 0;
+    white-space: pre-wrap;
+  }
+  @media print {
+    body { padding: 20px 36px; }
+    .section-break { page-break-before: always; border-top: none; padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ LAMPIRAN 1 — TES ═══════════════════════ -->
+<p class="lampiran-label">Lampiran 1 Instrumen Tes Kemampuan Pemrograman (JavaScript)</p>
+<div class="doc-title">
+  <p>Tes Kemampuan Pemrograman JavaScript</p>
+  <p class="muted" style="font-weight:normal;font-size:10.5pt;text-transform:none">Pretest &amp; Posttest — Pembelajaran dengan Plugin Moodle AICode</p>
+</div>
+
+<div class="info-block">
+  <table>
+    <tr><td class="lbl">Konteks</td><td class="sep">:</td><td>Siswa SMK; kelompok eksperimen (umpan balik LLM) vs kontrol (tanpa LLM); keduanya memakai modul AICode.</td></tr>
+    <tr><td class="lbl">Tujuan</td><td class="sep">:</td><td>Mengukur kemampuan dasar algoritme dan pemrograman JavaScript sebelum dan sesudah intervensi.</td></tr>
+    <tr><td class="lbl">Etika</td><td class="sep">:</td><td>Informasikan bahwa kode dapat diproses sistem; patuhi izin sekolah dan orang tua wali.</td></tr>
+  </table>
+</div>
+
+<p class="subtitle">Spesifikasi tes</p>
+<div class="table-wrap">
+<table class="uji">
+  <thead><tr><th style="width:22%">Aspek</th><th>Ketentuan</th></tr></thead>
+  <tbody>
+    <tr><td>Waktu</td><td>60–90 menit (sesuaikan jam pelajaran)</td></tr>
+    <tr><td>Lingkungan</td><td>Kertas atau editor teks tanpa AI; boleh menuliskan <em>console.log</em> sebagai komentar penjelasan</td></tr>
+    <tr><td>Cakupan</td><td>Variabel, tipe data, operator, percabangan, perulangan, fungsi, array dasar</td></tr>
+    <tr><td>Tidak wajib</td><td>DOM, framework, modul ES</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p class="subtitle">Rubrik penilaian (per butir skor 0–4)</p>
+<div class="table-wrap">
+<table class="uji">
+  <thead><tr><th class="narrow">Skor</th><th>Deskripsi</th></tr></thead>
+  <tbody>
+    <tr><td class="center">4</td><td>Solusi benar, logika tepat, sintaks wajar</td></tr>
+    <tr><td class="center">3</td><td>Solusi hampir benar, kesalahan kecil (mis. <em>off-by-one</em>)</td></tr>
+    <tr><td class="center">2</td><td>Solusi sebagian, pemahaman parsial</td></tr>
+    <tr><td class="center">1</td><td>Usaha minimal, banyak kesalahan konsep</td></tr>
+    <tr><td class="center">0</td><td>Kosong atau tidak relevan</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="catatan-mini">Indikator debugging (opsional): +1 maksimum per soal jika siswa menuliskan langkah menemukan kesalahan atau tes kasus pada soal perbaikan kode.</p>
+
+<p class="subtitle">Set A — Pretest</p>
+<div class="table-wrap">
+<table class="uji">
+  <thead>
+    <tr>
+      <th class="narrow">No</th>
+      <th style="width:38%">Pertanyaan / perintah</th>
+      <th>Ruang jawaban</th>
+      <th class="narrow">Skor<br>(0–4)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="center">1</td>
+      <td>Jelaskan perbedaan <code>let</code> dan <code>const</code> dalam JavaScript. Berikan satu contoh penggunaan masing-masing (boleh pseudokode singkat). <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">2</td>
+      <td>Tuliskan fungsi <code>jumlahGanjil(n)</code> yang mengembalikan jumlah bilangan ganjil dari 1 sampai <em>n</em> (inklusif). Contoh: <code>jumlahGanjil(5)</code> &rarr; <code>9</code>. <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">3</td>
+      <td>Temukan kesalahan potongan kode berikut; tuliskan kode yang sudah diperbaiki. <strong>(20 poin)</strong>
+<pre class="code">function cekDiskon(total) {
+  if total > 100000 {
+    return total * 0.1;
+  }
+  return 0;
+}</pre></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">4</td>
+      <td>Tuliskan program yang mencetak atau mengembalikan string deret: 2, 4, 8, 16, 32 menggunakan perulangan (<code>for</code> atau <code>while</code>). <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">5</td>
+      <td>Diberikan array <code>let nilai = [70, 85, 60, 90]</code>; tuliskan kode untuk menghitung <strong>rata-rata</strong> dan menampilkan hasil (<code>console.log</code> atau <code>return</code>). <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p class="subtitle">Set B — Posttest</p>
+<div class="table-wrap">
+<table class="uji">
+  <thead>
+    <tr>
+      <th class="narrow">No</th>
+      <th style="width:38%">Pertanyaan / perintah</th>
+      <th>Ruang jawaban</th>
+      <th class="narrow">Skor<br>(0–4)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="center">1</td>
+      <td>Jelaskan kapan memakai <code>const</code> dibanding <code>let</code> untuk variabel yang menampung array; apakah isi array masih dapat diubah? <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">2</td>
+      <td>Tuliskan fungsi <code>jumlahGenap(n)</code> menjumlah bilangan genap dari 1 sampai <em>n</em> (inklusif). Contoh: <code>jumlahGenap(5)</code> &rarr; <code>6</code>. <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">3</td>
+      <td>Perbaiki kode berikut agar valid dan logis. <strong>(20 poin)</strong>
+<pre class="code">function sapa(nama) {
+  console.log("Halo, " nama);
+}</pre></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">4</td>
+      <td>Dengan perulangan, cetak deret: 3, 6, 12, 24, 48. <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+    <tr>
+      <td class="center">5</td>
+      <td>Dari <code>let harga = [10000, 25000, 15000]</code>: hitung total, terapkan diskon <strong>15%</strong> jika total &gt; 30000; tampilkan total akhir. <strong>(20 poin)</strong></td>
+      <td class="answer-space"></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p class="catatan-mini">Gunakan aktivitas AICode di course Moodle untuk perlakuan; tes terpisah ini untuk pengukuran. Selaraskan isi tes dengan capaian pembelajaran course JavaScript Anda.</p>
+
+
+<!-- ═══════════════════ LAMPIRAN 2 — KUESIONER ═══════════════════ -->
+<div class="section-break">
+<p class="lampiran-label">Lampiran 2 Instrumen Kuesioner Persepsi Siswa SMK</p>
+<div class="doc-title">
+  <p>Kuesioner Persepsi Siswa Sekolah Menengah Kejuruan</p>
+  <p class="muted" style="font-weight:normal;font-size:10.5pt;text-transform:none">Terhadap Pembelajaran Pemrograman JavaScript Menggunakan Plugin Moodle AICode</p>
+</div>
+
+<p>Pernyataan di bawah ini, Anda dimohon mengisi sesuai <strong>keadaan atau kondisi yang sebenarnya</strong>.</p>
+
+<p class="subtitle" style="margin-top:14px">A. Identitas peneliti</p>
+<table class="uji" style="margin-bottom:14px;">
+  <tr><td style="width:200px;">Nama</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Instansi / NIDN / NIP (opsional)</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+</table>
+
+<p class="subtitle">B. Identitas responden</p>
+<table class="uji" style="margin-bottom:14px;">
+  <tr><td style="width:200px;">Nama</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Asal sekolah (SMK)</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Kelas / rombel</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Program keahlian (jurusan)</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Kelompok penelitian</td><td>:</td><td colspan="5">( ) Eksperimen &nbsp; ( ) Kontrol</td></tr>
+  <tr><td>Sudah memakai umpan balik AI (latihan)</td><td>:</td><td colspan="5">( ) Ya &nbsp; ( ) Tidak / tidak ditawarkan</td></tr>
+</table>
+
+<p class="subtitle">C. Petunjuk pengisian</p>
+<table class="uji" style="margin-bottom:10px;">
+  <tr><td>1)</td><td>Pilih salah satu jawaban yang paling sesuai.</td></tr>
+  <tr><td>2)</td><td>Berilah tanda (✓) pada kolom yang sesuai.</td></tr>
+  <tr><td>3)</td><td>Keterangan skala: <strong>SS</strong> Sangat Setuju; <strong>S</strong> Setuju; <strong>R</strong> Ragu-ragu; <strong>TS</strong> Tidak Setuju; <strong>STS</strong> Sangat Tidak Setuju.</td></tr>
+</table>
+<p class="muted">Catatan penelitian: butir negatif pada bagian Kendala (11–16) reverse saat pengolahan data.</p>
+
+<p class="subtitle">C. Daftar pertanyaan</p>
+<div class="table-wrap">
+<table class="uji">
+  <thead>
+    <tr>
+      <th class="narrow" rowspan="2">No</th>
+      <th rowspan="2">Pernyataan</th>
+      <th colspan="5" class="center">Jawaban</th>
+    </tr>
+    <tr>
+      <th class="tiny">SS</th><th class="tiny">S</th><th class="tiny">R</th><th class="tiny">TS</th><th class="tiny">STS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="dimensi"><td colspan="7">Kebutuhan — Informasi dan penyelenggaraan pembelajaran</td></tr>
+    <tr><td class="center">1</td><td>Saya sudah menerima, mendengar, membaca, dan memahami penjelasan tentang cara menggunakan aktivitas AICode di Moodle.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">2</td><td>Penjelasan dari guru atau petunjuk di aktivitas membantu saya memahami prosedur mengerjakan tugas pemrograman JavaScript.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">3</td><td>Informasi atau petunjuk yang saya dapatkan menarik, jelas, dan mudah dipahami.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">4</td><td>Pengenalan aktivitas meningkatkan kesediaan dan partisipasi saya belajar pemrograman di Moodle.</td><td></td><td></td><td></td><td></td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="7">Harapan — Yang menyenangkan / bernilai positif</td></tr>
+    <tr><td class="center">5</td><td>Saya senang bisa belajar JavaScript melalui Moodle dengan aktivitas AICode.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">6</td><td>Saya senang aktivitas ini membantu latihan terstruktur di luar kelas (jika digunakan demikian).</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">7</td><td>Saya senang dapat menjalankan kode dan melihat hasil di konsol sehingga memudahkan verifikasi.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">8</td><td>Saya senang bisa mencoba lagi saat salah, tanpa tekanan seperti ujian tulis klasik.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">9</td><td>Saya senang saat umpan balik membantu menemukan letak kesalahan (isi jika dapat AI).</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">10</td><td>Aktivitas ini meningkatkan percaya diri saya mengoding JavaScript dibanding sebelumnya.</td><td></td><td></td><td></td><td></td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="7">Harapan — Kendala atau ketidakpuasan (reverse scoring pada analisis)</td></tr>
+    <tr><td class="center">11</td><td>Saya tidak nyaman karena mengoperasikan editor/aktivitas di Moodle sulit pada awalnya.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">12</td><td>Saya kecewa karena tugas atau soal kadang tidak jelas.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">13</td><td>Saya kesulitan jika internet tidak stabil atau perangkat tidak mendukung.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">14</td><td>Saya frustasi saat sistem lama merespons (jalankan kode atau memuat umpan balik).</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">15</td><td>Saya bingung membedakan mode latihan dan mode ujian.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">16</td><td>Aktivitas ini membuat saya cemas tentang penilaian dibanding belajar biasa di kelas.</td><td></td><td></td><td></td><td></td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="7">Pengalaman — Perilaku belajar</td></tr>
+    <tr><td class="center">17</td><td>Setelah menggunakan aktivitas, saya lebih rutin menyusun algoritme bertahap.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">18</td><td>Saya lebih melatih membaca pesan error / keluaran konsol.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">19</td><td>Saya lebih sering mencoba variasi pendekatan pada tugas pemrograman.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">20</td><td>Saya lebih berminat mengembangkan proyek kecil pemrograman.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">21</td><td>Saya lebih bermotivasi mengeksplor sumber belajar daring.</td><td></td><td></td><td></td><td></td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="7">Pengalaman — Bermakna (yang diingat)</td></tr>
+    <tr><td class="center">22</td><td>Saya berpengalaman menulis dan menguji sendiri baris kode JavaScript.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">23</td><td>Saya berpengalaman menyusun strategi sederhana (mis. console.log atau kasus uji).</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">24</td><td>Saya berpengalaman memakai teknologi (browser, LMS, editor) dalam pembelajaran daring.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">25</td><td>Saya belajar secara aktif, bukan hanya menyalin jawaban orang lain (etika akademik).</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">26</td><td>Saya dapat menghubungkan materi di kelas dengan latihan tugas pemrograman di Moodle.</td><td></td><td></td><td></td><td></td><td></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Tanggal pengisian:&nbsp;&nbsp; …….. / …….. / …….. &nbsp;&nbsp;&nbsp;&nbsp; Terima kasih atas partisipasi Anda.</p>
+</div>
+
+
+<!-- ═══════════════════ LAMPIRAN 3 — WAWANCARA ═════════════════ -->
+<div class="section-break">
+<p class="lampiran-label">Lampiran 3 Instrumen Pedoman Wawancara Siswa SMK</p>
+<div class="doc-title">
+  <p>Pedoman Wawancara</p>
+  <p class="muted" style="font-weight:normal;font-size:10.5pt;text-transform:none">Pembelajaran JavaScript dengan Plugin Moodle AICode (peserta didik)</p>
+</div>
+
+<div class="info-block">
+  <table>
+    <tr><td class="lbl">Tujuan</td><td class="sep">:</td><td>Penggalian kualitatif penggunaan AICode, umpan balik, strategi debugging, motivasi (<em>thematic analysis</em>).</td></tr>
+    <tr><td class="lbl">Durasi</td><td class="sep">:</td><td>15–25 menit per orang; rekam/audio dengan izin atau catat verbatim.</td></tr>
+    <tr><td class="lbl">Susulan</td><td class="sep">:</td><td>“Maksudnya bagaimana?”, “Bisa beri contoh?”</td></tr>
+  </table>
+</div>
+
+<table class="uji" style="margin-bottom:20px;">
+  <tr><td style="width:160px;">Identitas — Nama narasumber</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Asal sekolah / kelas</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Kelompok (E/K)</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Tanggal wawancara</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+  <tr><td>Pewawancara</td><td>:</td><td colspan="5">&nbsp;</td></tr>
+</table>
+
+<p class="muted" style="margin-bottom:10px;">Pernyataan berikut digunakan sebagai panduan; jawaban narasi dicatat pada kolom tersedia atau lembar terpisah.</p>
+
+<div class="table-wrap">
+<table class="uji">
+  <thead>
+    <tr>
+      <th class="narrow">No</th>
+      <th style="width:22%">Komponen</th>
+      <th>Substansi pertanyaan</th>
+      <th>Kutipan jawaban / catatan pewawancara</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="dimensi"><td colspan="4">A. Konteks penggunaan</td></tr>
+    <tr><td class="center">1</td><td>Konteks</td><td>Ceritakan pertama kali membuka aktivitas JavaScript di Moodle. Apa yang langsung Anda lakukan?</td><td style="min-height:44px;"></td></tr>
+    <tr><td class="center">2</td><td>Mode</td><td>Mode latihan atau ujian yang lebih sering dipakai? Mengapa?</td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="4">B. Proses menyelesaikan soal</td></tr>
+    <tr><td class="center">3</td><td>Error</td><td>Saat program error atau hasil tidak sesuai, langkah apa yang biasa dilakukan?</td><td style="min-height:44px;"></td></tr>
+    <tr><td class="center">4</td><td>Strategi</td><td>Apakah membandingkan kode dengan contoh soal atau teman? Jelaskan.</td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="4">C. Umpan balik (sesuaikan kelompok E atau K)</td></tr>
+    <tr><td class="center">5</td><td>AI / bantuan</td><td><strong>E:</strong> Seberapa sering membaca umpan balik sistem? Yang paling membantu?<br><strong>K:</strong> Dari mana bantuan tanpa umpan balik otomatis? Apa yang diharapkan ada di sistem?</td><td style="min-height:56px;"></td></tr>
+
+    <tr class="dimensi"><td colspan="4">D. Debugging dan pemahaman</td></tr>
+    <tr><td class="center">6</td><td>Kesulitan</td><td>Satu masalah program tersulit—bagaimana akhirnya dipahami?</td><td style="min-height:44px;"></td></tr>
+    <tr><td class="center">7</td><td>Konsep</td><td>Arti “debugging” sebelum vs sesudah aktivitas ini?</td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="4">E. Motivasi dan emosi</td></tr>
+    <tr><td class="center">8</td><td>Emosi</td><td>Momen frustrasi atau senang? Pemicu?</td><td></td></tr>
+    <tr><td class="center">9</td><td>Keberanian</td><td>Lebih berani mencoba ide kode sendiri? Mengapa?</td><td></td></tr>
+
+    <tr class="dimensi"><td colspan="4">F. Penutup</td></tr>
+    <tr><td class="center">10</td><td>Saran</td><td>Jika menjadi guru: satu perubahan apa untuk aktivitas pemrograman ini?</td><td style="min-height:44px;"></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p class="catatan-mini"><strong>Analisis:</strong> kodekan transkrip (aksesibilitas, umpan balik, strategi kognitif, motivasi, kepercayaan diri); kutipan representatif per kelompok bila relevan.</p>
+
+<div class="signature-block"><div class="signature-inner">
+  <p class="sig-place">…………………………………., ………… 20……</p>
+  <p>Pewawancara,</p>
+  <br><br>
+  <p class="sig-name">( _________________________________ )</p>
+</div></div>
+</div>
+
+
+<!-- ═══════════════════ LAMPIRAN 4 — LOG ═══════════════════════ -->
+<div class="section-break">
+<p class="lampiran-label">Lampiran 4 Instrumen Log Aktivitas — Tabel <code>mdl_aicode_activity_log</code></p>
+<div class="doc-title">
+  <p>Log Aktivitas Sistem Plugin AICode</p>
+  <p class="muted" style="font-weight:normal;font-size:10.5pt;text-transform:none">Sesuai struktur basis data Moodle (metadata saja; tidak menyimpan kode sumber)</p>
+</div>
+
+<div class="info-block">
+  <table>
+    <tr><td class="lbl">Nama tabel</td><td class="sep">:</td><td><strong>mdl_aicode_activity_log</strong> &nbsp;(prefiks <code>mdl_</code> mengikuti instalasi; di kode Moodle: <code>{aicode_activity_log}</code>)</td></tr>
+    <tr><td class="lbl">Ekspor data</td><td class="sep">:</td><td>Administrator: <code>/mod/aicode/activity_log_manage.php</code> — unduh CSV dengan filter kursus &amp; tanggal (menyertakan <em>username</em>, email, nama kursus, nama aktivitas).</td></tr>
+    <tr><td class="lbl">Sumber kode</td><td class="sep">:</td><td><code>classes/local/activity_log.php</code> (konstanta kejadian): <code>db/install.xml</code></td></tr>
+  </table>
+</div>
+
+<p class="subtitle" style="margin-top:12px">Daftar kolom (baris log = satu rekaman kejadian)</p>
+<div class="table-wrap">
+<table class="uji" style="font-size:9pt;">
+  <thead>
+    <tr>
+      <th style="width:16%">Kolom</th>
+      <th>Penjelasan</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>id</code></td><td>PRIMARY KEY, auto increment</td></tr>
+    <tr><td><code>id_kursus</code></td><td>ID kursus (<code>course.id</code>)</td></tr>
+    <tr><td><code>id_modul</code></td><td>ID <em>course module</em> (<code>course_modules.id</code>)</td></tr>
+    <tr><td><code>id_aktivitas_aicode</code></td><td>ID instansi aktivitas (<code>aicode.id</code> / <code>mdl_aicode</code>)</td></tr>
+    <tr><td><code>id_pengguna</code></td><td>ID pengguna (<code>user.id</code>)</td></tr>
+    <tr><td><code>kode_kejadian</code></td><td>Kode jenis kejadian CHAR(32); lihat tabel di bawah</td></tr>
+    <tr><td><code>metadata_json</code></td><td>JSON opsional (tanpa source code)</td></tr>
+    <tr><td><code>nama_lengkap</code></td><td><em>Snapshot</em> nama lengkap saat dicatat</td></tr>
+    <tr><td><code>mode_aktivitas</code></td><td><code>training</code> atau <code>exam</code></td></tr>
+    <tr><td><code>jumlah_ai_hint</code></td><td>Kumulatif permintaan <code>ai_analyze</code> hingga baris ini</td></tr>
+    <tr><td><code>jumlah_run</code></td><td>Kumulatif estimasi eksekusi run (terkait attempts + log)</td></tr>
+    <tr><td><code>jumlah_kirim_guru</code></td><td>Kumulatif kirim ke guru (data attempts)</td></tr>
+    <tr><td><code>nilai_snapshot</code></td><td>Nilai buku nilai (angka), biasanya skala 0–100 jika ada; NULL jika belum ada</td></tr>
+    <tr><td><code>waktu_dicatat</code></td><td>UNIX <em>timestamp</em> (detik)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p class="subtitle" style="margin-top:14px">Nilai kolom <code>kode_kejadian</code> (Bahasa Indonesia, paket <code>lang/id</code>)</p>
+<div class="table-wrap">
+<table class="uji" style="font-size:9pt;">
+  <thead><tr><th style="width:28%">kode_kejadian</th><th>Arti untuk penelitian</th></tr></thead>
+  <tbody>
+    <tr><td><code>activity_view</code></td><td>Membuka halaman aktivitas</td></tr>
+    <tr><td><code>code_run</code></td><td>Menjalankan kode (eksekutor)</td></tr>
+    <tr><td><code>code_run_blocked</code></td><td>Eksekusi dicekal (keamanan)</td></tr>
+    <tr><td><code>ai_analyze</code></td><td>Meminta AI Hint / analisis AI</td></tr>
+    <tr><td><code>hint_recorded</code></td><td>Mencatat penggunaan petunjuk</td></tr>
+    <tr><td><code>send_to_teacher</code></td><td>Mengirim pekerjaan ke guru</td></tr>
+    <tr><td><code>run_history_view</code></td><td>Membuka riwayat run</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p class="subtitle" style="margin-top:14px">Template satu baris = satu rekaman (salin spreadsheet / dokumentasi sampel)</p>
+<p class="muted" style="font-size:9pt;margin-bottom:8px;"><code>waktu_dicatat</code>: UNIX <em>timestamp</em>. Header singkat AI/run/kirim = <code>jumlah_ai_hint</code>, <code>jumlah_run</code>, <code>jumlah_kirim_guru</code>. Kolom mode = <code>mode_aktivitas</code>; id aktivitas/user = <code>id_aktivitas_aicode</code>, <code>id_pengguna</code>.</p>
+<div class="table-wrap">
+<table class="uji" style="font-size:7.5pt;">
+  <thead>
+    <tr>
+      <th>id</th><th>id_<br>kursus</th><th>id_<br>modul</th><th>id_<br>aicode</th><th>id_<br>pengguna</th>
+      <th>kode_<br>kejadian</th><th style="width:13%">metadata_<br>json</th><th>nama_<br>lengkap</th>
+      <th>mode_<br>aktivitas</th><th>jm<br>_ai</th><th>jm<br>_run</th><th>jm<br>_guru</th><th>nilai_<br>snap</th><th style="width:76px;">waktu_<br>dicatat</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p class="catatan-mini" style="margin-top:10px;"><strong>Agregasi contoh:</strong> hitung frekuensi per <code>kode_kejadian</code> dan <code>id_pengguna</code>; bandingkan trajektori <code>jumlah_run</code> / <code>jumlah_ai_hint</code>; kode kelompok penelitian (E/K) simpan pada lembar terpisah (bukan kolom tabel ini).</p>
+</div>
+
+
+<!-- ═══════════════════ LAMPIRAN 5 — SUS ═══════════════════════ -->
+<div class="section-break">
+<p class="lampiran-label">Lampiran 5 Instrumen System Usability Scale (SUS)</p>
+<div class="doc-title">
+  <p>Evaluasi Usabilitas Menggunakan<br>System Usability Scale (SUS)</p>
+  <p class="muted" style="font-weight:normal;font-size:10.5pt;text-transform:none">Aktivitas pemrograman AICode di Moodle — JavaScript</p>
+</div>
+
+<table class="uji" style="margin-bottom:16px;width:72%;">
+  <tr><td style="width:160px;"><strong>Nama / inisial</strong></td><td>&nbsp;</td></tr>
+  <tr><td><strong>Kelas</strong></td><td>&nbsp;</td></tr>
+  <tr><td><strong>Kelompok</strong></td><td>( ) Eksperimen &nbsp; ( ) Kontrol</td></tr>
+  <tr><td><strong>Tanggal</strong></td><td>&nbsp;</td></tr>
+</table>
+
+<p>Pedoman: Nilai <strong>sistem aktivitas AICode</strong> (editor, menjalankan kode, konsol, bantuan). Untuk tiap pernyataan lingkari <strong>satu</strong> kolom jawaban.</p>
+<p style="margin:10px 0;"><strong>Skala:</strong> 1 = Sangat tidak setuju … 5 = Sangat setuju.</p>
+
+<div class="table-wrap">
+<table class="uji">
+  <thead>
+    <tr>
+      <th class="narrow">No</th>
+      <th>Pernyataan</th>
+      <th class="tiny">1</th>
+      <th class="tiny">2</th>
+      <th class="tiny">3</th>
+      <th class="tiny">4</th>
+      <th class="tiny">5</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="center">1</td><td>Saya berpikir akan menggunakan sistem aktivitas pemrograman ini lagi.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">2</td><td>Saya merasa sistem ini rumit untuk digunakan.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">3</td><td>Saya merasa sistem ini mudah digunakan.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">4</td><td>Saya perlu dukungan teknis untuk bisa menggunakan sistem ini.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">5</td><td>Saya merasa berbagai fungsi sistem ini terintegrasi dengan baik.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">6</td><td>Saya merasa ada terlalu banyak inkonsistensi dalam sistem ini.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">7</td><td>Saya membayangkan kebanyakan orang akan cepat mahir menggunakan sistem ini.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">8</td><td>Saya merasa sistem ini berbelit-belit.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">9</td><td>Saya merasa percaya diri menggunakan sistem ini.</td><td></td><td></td><td></td><td></td><td></td></tr>
+    <tr><td class="center">10</td><td>Saya perlu belajar banyak hal dulu sebelum bisa menggunakan sistem ini.</td><td></td><td></td><td></td><td></td><td></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="kesimpulan">
+  <strong>Perhitungan skor SUS (standar):</strong><br>
+  Butir ganjil (1,3,5,7,9): skor butir = (nilai dipilih − 1). Butir genap (2,4,6,8,10): skor butir = (5 − nilai dipilih).<br>
+  Jumlahkan sepuluh butir × 2,5 = skor SUS 0–100 (~68 acuan industri; &gt;80 baik; &lt;50 perlu perbaikan besar).
+</div>
+
+</div>
+
+<div class="doc-footer">
+  Paket Lampiran Instrumen Penelitian AICode (SMK, JavaScript) — format mengikuti gaya dokumentasi pengujian (blackbox) &nbsp;|&nbsp; Sesuaikan nomor lampiran dalam laporan akhir Anda
+</div>
+
+</body>
+</html>

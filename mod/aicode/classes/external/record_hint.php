@@ -82,6 +82,15 @@ class record_hint extends external_api {
             $hints[] = ['time' => time()];
             $attempt->used_hints_json = json_encode($hints);
             $DB->update_record('aicode_attempts', $attempt);
+
+            \mod_aicode\local\activity_log::record(
+                $context,
+                (int) $params['problemid'],
+                (int) $USER->id,
+                \mod_aicode\local\activity_log::ACTION_HINT_RECORDED,
+                ['hints_count' => count($hints)],
+                $problem
+            );
         }
 
         return ['success' => true];

@@ -110,6 +110,20 @@ class run_code extends external_api {
                 $blockedattempt->timecreated    = time();
                 $DB->insert_record('aicode_attempts', $blockedattempt);
 
+                \mod_aicode\local\activity_log::record(
+                    $context,
+                    (int) $params['problemid'],
+                    (int) $USER->id,
+                    \mod_aicode\local\activity_log::ACTION_CODE_RUN_BLOCKED,
+                    [
+                        'risk_level' => (string) ($securityresult['risk_level'] ?? ''),
+                        'violations_count' => isset($securityresult['violations']) && is_array($securityresult['violations'])
+                            ? count($securityresult['violations']) : 0,
+                        'language' => (string) $params['language'],
+                    ],
+                    $problem
+                );
+
                 $messages = array_map(
                     static function (array $v): string {
                         return "[Baris {$v['line']}] {$v['message']}";
@@ -190,6 +204,19 @@ class run_code extends external_api {
             : null;
         $attempt->timecreated    = time();
         $DB->insert_record('aicode_attempts', $attempt);
+
+        \mod_aicode\local\activity_log::record(
+            $context,
+            (int) $params['problemid'],
+            (int) $USER->id,
+            \mod_aicode\local\activity_log::ACTION_CODE_RUN,
+            [
+                'exitcode' => (int) ($result['exitCode'] ?? -1),
+                'language' => (string) $params['language'],
+                'anonymous_attempt' => $problem->allow_training ? 1 : 0,
+            ],
+            $problem
+        );
 
         return [
             'result' => json_encode($result),
