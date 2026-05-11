@@ -26,15 +26,19 @@ RUN apt-get update && apt-get install -y \
       opcache \
     && rm -rf /var/lib/apt/lists/*
 
-# Fix MPM configuration - remove all MPM module symlinks and enable only one
-RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf \
-    && a2enmod mpm_prefork \
-    && a2enmod rewrite
+# Enable rewrite module
+RUN a2enmod rewrite
 
 # Moodle commonly needs this to allow .htaccess rules.
 RUN sed -ri "s/AllowOverride None/AllowOverride All/g" /etc/apache2/apache2.conf
 
 WORKDIR /var/www/html
+
+# Copy entrypoint script first
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Copy application files
 COPY . /var/www/html
 
 # Persistent storage path for Moodle dataroot.
@@ -43,4 +47,4 @@ RUN mkdir -p /app/moodledata \
 
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+ENTRYPOINT ["docker-entrypoint.sh"]
