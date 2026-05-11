@@ -32,18 +32,19 @@ RUN a2enmod rewrite
 # Moodle commonly needs this to allow .htaccess rules.
 RUN sed -ri "s/AllowOverride None/AllowOverride All/g" /etc/apache2/apache2.conf
 
+# Create moodledata directory with proper permissions
+RUN mkdir -p /app/moodledata \
+    && chown -R www-data:www-data /app/moodledata \
+    && chmod -R 0777 /app/moodledata
+
 WORKDIR /var/www/html
 
-# Copy entrypoint script first
+# Copy application files first
+COPY --chown=www-data:www-data . /var/www/html
+
+# Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Copy application files
-COPY . /var/www/html
-
-# Persistent storage path for Moodle dataroot.
-RUN mkdir -p /app/moodledata \
-    && chown -R www-data:www-data /var/www/html /app/moodledata
 
 EXPOSE 80
 
