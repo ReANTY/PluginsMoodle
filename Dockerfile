@@ -1,4 +1,4 @@
-FROM php:8.1-apache
+FROM php:8.2-apache
 
 # Install system packages and PHP extensions required by Moodle.
 RUN apt-get update && apt-get install -y \
