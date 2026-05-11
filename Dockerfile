@@ -26,17 +26,13 @@ RUN apt-get update && apt-get install -y \
       opcache \
     && rm -rf /var/lib/apt/lists/*
 
-# Fix MPM configuration - disable all MPMs first, then enable only prefork
-RUN a2dismod mpm_event mpm_worker mpm_prefork || true \
+# Fix MPM configuration - remove all MPM module symlinks and enable only one
+RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf \
     && a2enmod mpm_prefork \
     && a2enmod rewrite
 
 # Moodle commonly needs this to allow .htaccess rules.
 RUN sed -ri "s/AllowOverride None/AllowOverride All/g" /etc/apache2/apache2.conf
-
-# Copy MPM configuration to prevent multiple MPM loading
-COPY mpm.conf /etc/apache2/conf-available/mpm.conf
-RUN a2enconf mpm
 
 WORKDIR /var/www/html
 COPY . /var/www/html
