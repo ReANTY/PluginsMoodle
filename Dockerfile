@@ -39,8 +39,11 @@ RUN mkdir -p /app/moodledata \
 
 WORKDIR /var/www/html
 
-# Copy application files first
+# Copy application files - use --chown to set ownership during copy
 COPY --chown=www-data:www-data . /var/www/html
+
+# Verify cache directory was copied
+RUN ls -la /var/www/html/cache/classes/ || echo "Cache classes directory missing!"
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
