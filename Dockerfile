@@ -42,6 +42,9 @@ WORKDIR /var/www/html
 # Copy application files - use --chown to set ownership during copy
 COPY --chown=www-data:www-data . /var/www/html
 
+# Copy Railway config as the main config.php
+COPY --chown=www-data:www-data config.railway.php /var/www/html/config.php
+
 # Verify cache directory was copied
 RUN ls -la /var/www/html/cache/classes/ || echo "Cache classes directory missing!"
 
