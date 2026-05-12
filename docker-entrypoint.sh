@@ -14,5 +14,19 @@ mkdir -p /app/moodledata
 chown -R www-data:www-data /app/moodledata
 chmod -R 0777 /app/moodledata
 
+# Create and set permissions for Moodle cache and temp directories
+mkdir -p /var/www/html/cache
+mkdir -p /var/www/html/localcache
+mkdir -p /var/www/html/temp
+mkdir -p /var/www/html/cache/classes
+
+chown -R www-data:www-data /var/www/html/cache
+chown -R www-data:www-data /var/www/html/localcache
+chown -R www-data:www-data /var/www/html/temp
+
+chmod -R 0777 /var/www/html/cache
+chmod -R 0777 /var/www/html/localcache
+chmod -R 0777 /var/www/html/temp
+
 # Start Apache
 exec apache2-foreground
