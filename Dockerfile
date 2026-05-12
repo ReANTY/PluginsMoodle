@@ -45,8 +45,15 @@ COPY --chown=www-data:www-data . /var/www/html
 # Copy Railway config as the main config.php
 COPY --chown=www-data:www-data config.railway.php /var/www/html/config.php
 
-# Verify cache directory was copied
-RUN ls -la /var/www/html/cache/classes/ || echo "Cache classes directory missing!"
+# Verify critical files exist
+RUN echo "=== Verifying Moodle files ===" && \
+    ls -la /var/www/html/cache/ && \
+    echo "=== Cache classes directory ===" && \
+    ls -la /var/www/html/cache/classes/ && \
+    echo "=== Checking config.php ===" && \
+    ls -la /var/www/html/cache/classes/config.php && \
+    echo "=== File content preview ===" && \
+    head -20 /var/www/html/cache/classes/config.php
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
