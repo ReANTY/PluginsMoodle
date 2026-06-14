@@ -20,6 +20,20 @@ $string['pluginname'] = 'AICode';
 $string['pluginadministration'] = 'Administrasi AICode';
 $string['modulename'] = 'AICode — Lab pemrograman ber-AI';
 
+// Halaman aktivitas siswa.
+$string['run'] = 'Jalankan';
+$string['hint'] = 'Bantuan AI';
+$string['reset'] = 'Reset';
+$string['submit'] = 'Kirim';
+$string['history'] = 'Riwayat';
+$string['preview'] = 'Pratinjau';
+$string['paneloutput'] = 'Keluaran';
+$string['panelproblems'] = 'Masalah';
+$string['panelfeedback'] = 'Umpan Balik';
+$string['htmlreadonly'] = 'HTML';
+$string['cssreadonly'] = 'CSS';
+$string['feedback'] = 'Umpan Balik AI';
+
 // Kapabilitas ringkas (untuk admin UI).
 $string['aicode:addinstance'] = 'Tambah aktivitas AICode baru';
 $string['aicode:view'] = 'Lihat aktivitas AICode';

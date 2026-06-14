@@ -1,4 +1,4 @@
-FROM php:8.2-apache
+FROM php:8.1-apache
 
 # Install system packages and PHP extensions required by Moodle.
 RUN apt-get update && apt-get install -y \
@@ -24,41 +24,20 @@ RUN apt-get update && apt-get install -y \
       soap \
       zip \
       opcache \
+    && a2dismod mpm_event mpm_worker || true \
+    && a2enmod mpm_prefork rewrite \
     && rm -rf /var/lib/apt/lists/*
-
-# Enable rewrite module
-RUN a2enmod rewrite
 
 # Moodle commonly needs this to allow .htaccess rules.
 RUN sed -ri "s/AllowOverride None/AllowOverride All/g" /etc/apache2/apache2.conf
 
-# Create moodledata directory with proper permissions
-RUN mkdir -p /app/moodledata \
-    && chown -R www-data:www-data /app/moodledata \
-    && chmod -R 0777 /app/moodledata
-
 WORKDIR /var/www/html
+COPY . /var/www/html
 
-# Copy application files - use --chown to set ownership during copy
-COPY --chown=www-data:www-data . /var/www/html
-
-# Copy Railway config as the main config.php
-COPY --chown=www-data:www-data config.railway.php /var/www/html/config.php
-
-# Verify critical files exist
-RUN echo "=== Verifying Moodle files ===" && \
-    ls -la /var/www/html/cache/ && \
-    echo "=== Cache classes directory ===" && \
-    ls -la /var/www/html/cache/classes/ && \
-    echo "=== Checking config.php ===" && \
-    ls -la /var/www/html/cache/classes/config.php && \
-    echo "=== File content preview ===" && \
-    head -20 /var/www/html/cache/classes/config.php
-
-# Copy entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Persistent storage path for Moodle dataroot.
+RUN mkdir -p /app/moodledata \
+    && chown -R www-data:www-data /var/www/html /app/moodledata
 
 EXPOSE 80
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["apache2-foreground"]

@@ -3,6 +3,7 @@
 .vscode
 .idea
 node_modules
+vendor/bin
 tests
 behat
 phpunit.xml
@@ -11,13 +12,22 @@ config.php
 config.php.bak
 moodledata
 temp
+cache
 .DS_Store
 Thumbs.db
+node_modules
 npm-debug.log
 .env
+.git
 .gitignore
+README.md
 *.md
+.DS_Store
+.vscode
+.idea
 *.log
 coverage
 .nyc_output
+dist
+build
 

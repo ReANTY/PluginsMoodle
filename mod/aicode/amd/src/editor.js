@@ -19,6 +19,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
   let config = {};
   let cachedFeedback = null;
   let lastAnalysisInput = null;
+  let lastRunWasSuccess = false;
   let aiFeedbackPromise = null;
   let aiFeedbackRequestId = 0;
   let hintRequested = false;
@@ -407,7 +408,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
       }
 
       if (data.type === "error") {
-        const message = data.payload && data.payload.message ? data.payload.message : "Error";
+        const message = data.payload && data.payload.message ? data.payload.message : "Kesalahan";
         const stack = data.payload && data.payload.stack ? data.payload.stack : "";
         const loc = parseStackLocation(stack || message, true);
         addProblem("error", message, loc ? loc.line : null, loc ? loc.col : null);
@@ -426,7 +427,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     const examModeForStudent = isExamModeForStudent();
 
     if (!problemId) {
-      Notification.alert("Missing problem id", "Please reload the page and try again.");
+      Notification.alert("ID soal tidak ditemukan", "Silakan muat ulang halaman lalu coba lagi.");
       return;
     }
 
@@ -434,7 +435,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     // Submission is handled by the dedicated Submit button.
     if (examModeForStudent) {
       if (!code || !String(code).trim()) {
-        Notification.alert("Empty code", "Please write your code before running.");
+        Notification.alert("Kode kosong", "Silakan tulis kode terlebih dahulu sebelum menjalankan.");
         return;
       }
     }
@@ -444,6 +445,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     resetAIFeedbackState();
     cachedFeedback = null;
     lastAnalysisInput = null;
+    lastRunWasSuccess = false;
 
     // Pre-filter for obvious errors
     if (preFilterCode(code)) {
@@ -478,7 +480,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
         }
 
         if (!result) {
-          addProblem("error", "Execution failed: empty result from executor.", null, null);
+          addProblem("error", "Eksekusi gagal: tidak ada hasil dari layanan eksekutor.", null, null);
           return true;
         }
 
@@ -498,7 +500,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
             '<div class="alert alert-danger">' +
             "<strong>🔒 Kode Diblokir — Risiko Keamanan " + escapeHtml(riskLabel) + "</strong>" +
             "<p>Kode kamu mengandung operasi yang tidak diizinkan dan <strong>tidak dieksekusi</strong>. " +
-            "Lihat panel <strong>PROBLEMS</strong> di bawah untuk detail setiap pelanggaran.</p>" +
+            "Lihat panel <strong>MASALAH</strong> di bawah untuk detail setiap pelanggaran.</p>" +
             "<p class=\"mb-0\"><small>Hapus pola berbahaya lalu coba jalankan lagi.</small></p>" +
             "</div>"
           );
@@ -521,20 +523,25 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
           }
         }
 
-        // Save latest analysis payload from the most recent failed run.
+        // Save latest analysis payload from the most recent run.
+        const payload = {
+          code: code,
+          stderr: result.stderr || "",
+          trace: result.trace || "",
+        };
+        lastAnalysisInput = payload;
+
         if (result.stderr || result.exitCode !== 0) {
-          const payload = {
-            code: code,
-            stderr: result.stderr || "",
-            trace: result.trace || "",
-          };
-          lastAnalysisInput = payload;
+          // Code has errors - start AI feedback analysis
           cachedFeedback = null;
+          lastRunWasSuccess = false;
           if (!examModeForStudent) {
             startAIFeedbackAnalysis(payload);
           }
         } else if (!examModeForStudent) {
-          $("#aicode-feedback").html('<div class="alert alert-success">✓ Code executed successfully!</div>');
+          // Code ran successfully without errors
+          lastRunWasSuccess = true;
+          $("#aicode-feedback").html('<div class="alert alert-success">✓ Kode berhasil dijalankan!</div>');
         }
 
         return true;
@@ -569,7 +576,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     if (countEl) {
       const n = (parseInt(countEl.dataset.count || "0", 10) || 0) + 1;
       countEl.dataset.count = String(n);
-      countEl.textContent = n + " line" + (n !== 1 ? "s" : "");
+      countEl.textContent = n + " baris";
     }
     const el = document.createElement("div");
     el.className = "aicode-output-line" + (level === "info" ? " aicode-output-info" : "");
@@ -741,7 +748,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
         });
 
         window.addEventListener("error", function (e) {
-          post("error", { message: e.message || "Error", stack: e.error && e.error.stack ? e.error.stack : "" });
+          post("error", { message: e.message || "Kesalahan", stack: e.error && e.error.stack ? e.error.stack : "" });
         });
         window.addEventListener("unhandledrejection", function (e) {
           var reason = e && e.reason ? e.reason : "Unhandled promise rejection";
@@ -948,7 +955,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     if (!historyItems.length) {
       const empty = document.createElement("div");
       empty.className = "aicode-history-empty";
-      empty.textContent = "No history yet.";
+      empty.textContent = "Belum ada riwayat.";
       historyList.appendChild(empty);
       return;
     }
@@ -962,7 +969,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
       entry.dataset.index = String(index);
       const isExpanded = index === expandedHistoryIndex;
       const content = isExpanded ? String(item || "") : buildHistoryPreview(item);
-      const safeContent = escapeHtml(content || "(empty)");
+      const safeContent = escapeHtml(content || "(kosong)");
       const number = index + 1;
       entry.innerHTML =
         `<div class="aicode-history-meta">` +
@@ -982,7 +989,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
   const buildHistoryPreview = function (code) {
     const firstLine = String(code).split("\n")[0] || "";
     const snippet = firstLine.length > 90 ? firstLine.slice(0, 90) + "…" : firstLine;
-    return snippet || "(empty)";
+    return snippet || "(kosong)";
   };
 
   /**
@@ -1064,8 +1071,10 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
 
     for (let pattern of suspiciousPatterns) {
       if (pattern.test(code)) {
-        addProblem("error", "Suspicious or disallowed code pattern detected.", null, null);
-        $("#aicode-feedback").html('<div class="alert alert-danger">⚠ Your code contains potentially unsafe operations.</div>');
+        addProblem("error", "Pola kode mencurigakan atau tidak diizinkan terdeteksi.", null, null);
+        $("#aicode-feedback").html(
+          '<div class="alert alert-danger">⚠ Kode kamu mengandung operasi yang berpotensi tidak aman.</div>'
+        );
         return true;
       }
     }
@@ -1083,7 +1092,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
       return "";
     }
 
-    let html = '<div class="mt-2"><strong>Recommended Materials:</strong><ul>';
+    let html = '<div class="mt-2"><strong>Materi Rekomendasi:</strong><ul>';
     materials.forEach(function (material) {
       if (!material || !material.title) {
         return;
@@ -1211,11 +1220,11 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     if (!$hintBtn.length) {
       return;
     }
-    const defaultLabel = $hintBtn.data("default-label") || $hintBtn.text() || "Hint";
+    const defaultLabel = $hintBtn.data("default-label") || $hintBtn.text() || "Bantuan";
     $hintBtn.data("default-label", defaultLabel);
     if (isLoading) {
       $hintBtn.prop("disabled", true);
-      $hintBtn.text("AI is analyzing...");
+      $hintBtn.text("AI sedang menganalisis...");
     } else {
       $hintBtn.prop("disabled", false);
       $hintBtn.text($hintBtn.data("default-label"));
@@ -1228,8 +1237,8 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
   const showHintLoadingState = function () {
     const html =
       '<div class="alert alert-info aicode-hint-loading">' +
-      "<strong>AI is still analyzing your latest error.</strong>" +
-      '<p class="mb-0">Please wait a moment. Feedback will appear automatically when ready.</p>' +
+      "<strong>AI masih menganalisis error terbaru kamu.</strong>" +
+      '<p class="mb-0">Mohon tunggu sebentar. Umpan balik akan muncul otomatis setelah siap.</p>' +
       "</div>";
     $("#aicode-feedback").html(html);
   };
@@ -1269,6 +1278,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     aiFeedbackRequestId += 1;
     aiFeedbackPromise = null;
     hintRequested = false;
+    lastRunWasSuccess = false;
     setHintButtonLoading(false);
   };
 
@@ -1348,14 +1358,32 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
   };
 
   /**
+   * Translate diagnosis category label for display
+   * @param {string} category
+   * @return {string}
+   */
+  const formatDiagnosisCategory = function (category) {
+    const labels = {
+      syntax: "Sintaks",
+      runtime: "Runtime",
+      logic: "Logika",
+      style: "Gaya kode",
+      security: "Keamanan",
+      performance: "Performa",
+    };
+    const key = String(category || "runtime").toLowerCase();
+    return labels[key] || category || "Runtime";
+  };
+
+  /**
    * Display AI feedback
    * @param {object} feedback
    */
   const displayFeedback = function (feedback) {
     const diagnosis = feedback && feedback.diagnosis ? feedback.diagnosis : {};
     let html = '<div class="alert alert-info">';
-    html += `<h5>AI Diagnosis: ${escapeHtml(String(diagnosis.category || "runtime"))}</h5>`;
-    html += `<p><strong>${escapeHtml(String(diagnosis.message_short || "An error occurred."))}</strong></p>`;
+    html += `<h5>Diagnosis AI: ${escapeHtml(formatDiagnosisCategory(diagnosis.category))}</h5>`;
+    html += `<p><strong>${escapeHtml(String(diagnosis.message_short || "Terjadi kesalahan."))}</strong></p>`;
     html += `<p>${escapeHtml(String(diagnosis.message_long || ""))}</p>`;
 
     if (feedback && Array.isArray(feedback.hints) && feedback.hints.length) {
@@ -1822,12 +1850,12 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     const sesskey = getSesskey();
 
     if (!problemId) {
-      Notification.alert("Missing problem id", "Please reload the page and try again.");
+      Notification.alert("ID soal tidak ditemukan", "Silakan muat ulang halaman lalu coba lagi.");
       return;
     }
 
     if (!lastAnalysisInput && !cachedFeedback && !aiFeedbackPromise) {
-      Notification.alert("No hints available", "Please run your code first so AI can analyze the error.");
+      Notification.alert("Petunjuk belum tersedia", "Jalankan kode terlebih dahulu agar AI dapat menganalisis.");
       return;
     }
 
@@ -1837,7 +1865,36 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     }
 
     if (!lastAnalysisInput) {
-      Notification.alert("No hints available", "Please run your code first so AI can analyze the error.");
+      Notification.alert("Petunjuk belum tersedia", "Jalankan kode terlebih dahulu agar AI dapat menganalisis.");
+      return;
+    }
+
+    // Check if code ran successfully without errors (fallback via lastAnalysisInput)
+    const hasError = lastAnalysisInput.stderr && lastAnalysisInput.stderr.trim() !== "";
+    const hasTrace = lastAnalysisInput.trace && lastAnalysisInput.trace.trim() !== "";
+
+    if (!hasError && !hasTrace) {
+      // Code ran without errors. Check if student actually wrote something vs starter code.
+      const currentCode = String(lastAnalysisInput.code || getEditorValue() || "").trim();
+      const starterCode = String(getStarterCode() || "").trim();
+
+      if (!currentCode || (starterCode && currentCode === starterCode)) {
+        // Student hasn't modified the starter code — prompt them to write their answer.
+        Notification.alert(
+          "Tulis jawaban kamu dulu",
+          "Kamu belum mengubah kode dari template awal. Tuliskan jawaban kamu terlebih dahulu, " +
+          "lalu klik Jalankan sebelum meminta bantuan AI."
+        );
+        return;
+      }
+
+      // Student wrote custom code that runs without errors.
+      // Show neutral popup — no need to call AI for this case.
+      Notification.alert(
+        "\u2139\ufe0f Kode berjalan tanpa error",
+        "Kode kamu berhasil dijalankan tanpa pesan error. " +
+        "Namun pastikan output yang dihasilkan sudah sesuai dengan perintah soal sebelum mengumpulkan jawaban."
+      );
       return;
     }
 
@@ -1859,7 +1916,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
    * Handle Reset button click
    */
   const handleReset = function () {
-    if (confirm("Are you sure you want to reset the code to the starter template?")) {
+    if (confirm("Yakin ingin mengembalikan kode ke template awal?")) {
       setEditorValue(getStarterCode());
       resetPanels();
       $("#aicode-feedback").html("");
@@ -1910,7 +1967,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
         "border-radius:0.5rem;font-size:0.875rem;color:#0a3622;";
       banner.innerHTML =
         "<strong>✓ Jawaban kamu sudah dikumpulkan.</strong> " +
-        "Editor sekarang bersifat <em>read-only</em> dan tidak dapat diubah lagi.";
+        "Editor sekarang bersifat <em>hanya baca</em> dan tidak dapat diubah lagi.";
       const controls = document.querySelector(".aicode-controls");
       if (controls && controls.parentNode) {
         controls.parentNode.insertBefore(banner, controls.nextSibling);
@@ -1951,7 +2008,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
     const sesskey = getSesskey();
 
     if (!problemId) {
-      Notification.alert("Missing problem id", "Please reload the page and try again.");
+      Notification.alert("ID soal tidak ditemukan", "Silakan muat ulang halaman lalu coba lagi.");
       return;
     }
 
@@ -2035,7 +2092,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
             "Jawaban kamu berhasil dikumpulkan. Kamu tidak dapat mengubah atau mengirim ulang jawaban."
           );
         } else {
-          Notification.alert("Success", "Your code has been sent to the teacher for review.");
+          Notification.alert("Berhasil", "Kode kamu telah dikirim ke guru untuk ditinjau.");
         }
         return true;
       })
@@ -2087,7 +2144,7 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
 
     const $fc = $("#aicode-problems-file-count");
     if (total > 0) {
-      $fc.text(total + " problem" + (total !== 1 ? "s" : ""));
+      $fc.text(total + " masalah");
     } else {
       $fc.text("");
     }

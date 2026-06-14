@@ -40,22 +40,37 @@ if ($action === 'savegrade' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $gradeduserid = required_param('gradeduserid', PARAM_INT);
     $rawgradestr  = optional_param('rawgrade', '', PARAM_RAW);
 
+    $aicodeforgrade = aicode_enrich_for_gradebook(clone $aicode);
+    $gradeparams = aicode_build_grade_item_params($aicodeforgrade);
+    $grademax = 100.0;
+    if (!empty($gradeparams['grademax'])) {
+        $grademax = (float) $gradeparams['grademax'];
+    }
+
     if ($rawgradestr !== '') {
-        $rawgrade = max(0.0, min(100.0, (float)$rawgradestr));
+        $rawgrade = max(0.0, min($grademax, (float)$rawgradestr));
     } else {
         $rawgrade = null;
     }
 
-    $gradeobj           = new stdClass();
-    $gradeobj->userid   = $gradeduserid;
-    $gradeobj->rawgrade = $rawgrade;
-    grade_update('mod/aicode', $course->id, 'mod', 'aicode', $aicode->id, 0, [$gradeduserid => $gradeobj]);
+    $result = aicode_set_user_grade($aicodeforgrade, $gradeduserid, $rawgrade);
 
     $redir = new moodle_url('/mod/aicode/report.php', ['id' => $id, 'filter' => $filter]);
     if ($userid) {
         $redir->param('userid', $gradeduserid);
     }
-    redirect($redir, 'Nilai berhasil disimpan.', null, \core\output\notification::NOTIFY_SUCCESS);
+
+    if ($result === GRADE_UPDATE_OK) {
+        grade_regrade_final_grades($course->id);
+        redirect($redir, get_string('gradesaved', 'aicode'), null, \core\output\notification::NOTIFY_SUCCESS);
+    }
+
+    redirect(
+        $redir,
+        get_string('gradesavefailed', 'aicode', $result),
+        null,
+        \core\output\notification::NOTIFY_ERROR
+    );
 }
 
 if ($action === 'saveoverride' && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -748,14 +763,13 @@ if ($userid > 0) {
 
     // ── Set grade form (di bawah kode) ────────────────────────────────────
 
-    if ($canoverride) {
-        $gradeaction = new moodle_url('/mod/aicode/report.php', [
+    $gradeaction = new moodle_url('/mod/aicode/report.php', [
             'id'     => $id,
             'userid' => $userid,
             'action' => 'savegrade',
         ]);
         echo '<div class="aicode-rpt-section">';
-        echo '<h4>Beri Nilai</h4>';
+        echo '<h4>' . get_string('setgrade', 'aicode') . '</h4>';
         echo '<form method="post" action="' . s($gradeaction->out(false)) . '" class="aicode-rpt-grade-form">';
         echo '<input type="hidden" name="sesskey" value="' . sesskey() . '">';
         echo '<input type="hidden" name="gradeduserid" value="' . (int)$userid . '">';
@@ -765,10 +779,12 @@ if ($userid > 0) {
             . ($currentgrade !== null ? s(round((float)$currentgrade, 1)) : '') . '">';
         echo '<button type="submit" class="btn btn-primary">Simpan Nilai</button>';
         echo '</div>';
-        echo '<div class="form-text text-muted mt-1">Kosongkan untuk menghapus/reset nilai.</div>';
-        echo '</form>';
-        echo '</div>';
-    }
+        echo '<div class="form-text text-muted mt-1">' . get_string('gradeemptyreset', 'aicode') . '</div>';
+        $gradebookurl = new moodle_url('/grade/report/grader/index.php', ['id' => $course->id]);
+        echo '<div class="form-text mt-1"><a href="' . s($gradebookurl->out(false)) . '">'
+            . get_string('viewingradebook', 'aicode') . '</a></div>';
+    echo '</form>';
+    echo '</div>';
 
     // ── AI Feedback Correction Panel ──────────────────────────────────────
 
@@ -1805,20 +1821,17 @@ ANALYTICSJS;
 
         // Inline grade input.
         echo '<td>';
-        if ($canoverride) {
-            $gradeaction = new moodle_url('/mod/aicode/report.php', ['id' => $id, 'action' => 'savegrade', 'filter' => $filter]);
-            echo '<form method="post" action="' . s($gradeaction->out(false)) . '" class="d-flex gap-1 align-items-center aicode-rpt-inline-grade">';
-            echo '<input type="hidden" name="sesskey" value="' . sesskey() . '">';
-            echo '<input type="hidden" name="gradeduserid" value="' . (int)$stu->id . '">';
-            echo '<input type="number" name="rawgrade" class="form-control form-control-sm aicode-rpt-grade-input"'
-                . ' min="0" max="100" step="0.5"'
-                . ' value="' . ($grade !== null ? s(round((float)$grade, 1)) : '') . '"'
-                . ' placeholder="—">';
-            echo '<button type="submit" class="btn btn-sm btn-outline-primary" title="Simpan Nilai">&#10003;</button>';
-            echo '</form>';
-        } else {
-            echo $grade !== null ? round((float)$grade, 1) : '<span class="text-muted">—</span>';
-        }
+        $gradeaction = new moodle_url('/mod/aicode/report.php', ['id' => $id, 'action' => 'savegrade', 'filter' => $filter]);
+        echo '<form method="post" action="' . s($gradeaction->out(false)) . '" class="d-flex gap-1 align-items-center aicode-rpt-inline-grade">';
+        echo '<input type="hidden" name="sesskey" value="' . sesskey() . '">';
+        echo '<input type="hidden" name="gradeduserid" value="' . (int)$stu->id . '">';
+        echo '<input type="number" name="rawgrade" class="form-control form-control-sm aicode-rpt-grade-input"'
+            . ' min="0" max="100" step="0.5"'
+            . ' value="' . ($grade !== null ? s(round((float)$grade, 1)) : '') . '"'
+            . ' placeholder="—">';
+        echo '<button type="submit" class="btn btn-sm btn-outline-primary" title="'
+            . s(get_string('setgrade', 'aicode')) . '">&#10003;</button>';
+        echo '</form>';
         echo '</td>';
 
         echo '<td>';

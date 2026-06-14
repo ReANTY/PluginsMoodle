@@ -195,7 +195,7 @@ class mod_aicode_renderer extends plugin_renderer_base {
         if (!html.trim() && !css.trim()) { return; }
         // Replicate the same srcdoc structure used by the AMD module.
         var loopGuard = 'var __lpS=Date.now();window.__loopProtect=function(){'
-            + 'if(Date.now()-__lpS>500){throw new Error("Infinite loop guard");}};';
+            + 'if(Date.now()-__lpS>500){throw new Error("Pengaman loop tak terbatas");}};';
         var safeJs = js.replace(/<\/script>/gi, '<\\/script>');
         var srcdoc = '<!doctype html><html><head><meta charset="utf-8">'
             + '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -344,7 +344,7 @@ JS
         $previewpanelattrs = $hastemplates ? [] : ['style' => 'display:none'];
         $output .= html_writer::start_div('aicode-preview-panel', $previewpanelattrs);
         $output .= '<div class="aicode-output-header">';
-        $output .= '<span class="aicode-output-title">PREVIEW</span>';
+        $output .= '<span class="aicode-output-title">' . get_string('preview', 'aicode') . '</span>';
         $output .= '</div>';
         $output .= html_writer::tag('iframe', '', [
             'id' => 'aicode-preview-iframe',
@@ -357,7 +357,7 @@ JS
         // Output panel — console.log/info results, hidden until code is run.
         $output .= '<div class="aicode-output-panel" id="aicode-output-panel" style="display:none">';
         $output .= '<div class="aicode-output-header">';
-        $output .= '<span class="aicode-output-title">OUTPUT</span>';
+        $output .= '<span class="aicode-output-title">' . get_string('paneloutput', 'aicode') . '</span>';
         $output .= '<span class="aicode-output-count" id="aicode-output-count"></span>';
         $output .= '</div>';
         $output .= '<div class="aicode-output-list" id="aicode-output-list"></div>';
@@ -377,7 +377,7 @@ JS
         // Problems panel (VS Code style).
         $output .= '<div class="aicode-problems-panel">';
         $output .= '<div class="aicode-problems-header">';
-        $output .= '<span class="aicode-problems-title">PROBLEMS</span>';
+        $output .= '<span class="aicode-problems-title">' . get_string('panelproblems', 'aicode') . '</span>';
         $output .= '<span class="aicode-problems-badges">';
         $output .= '<span class="aicode-problems-badge aicode-badge-error" id="aicode-badge-error" style="display:none"></span>';
         $output .= '<span class="aicode-problems-badge aicode-badge-warn"  id="aicode-badge-warn"  style="display:none"></span>';
@@ -404,7 +404,7 @@ JS
 
         $output .= '<div class="aicode-feedback-panel">';
         $output .= '<div class="aicode-output-header">';
-        $output .= '<span class="aicode-output-title">FEEDBACK</span>';
+        $output .= '<span class="aicode-output-title">' . get_string('panelfeedback', 'aicode') . '</span>';
         $output .= '</div>';
         $output .= html_writer::div('', 'feedback-box', ['id' => 'aicode-feedback']);
         $output .= '</div>';

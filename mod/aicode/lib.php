@@ -88,10 +88,9 @@ function aicode_add_instance(stdClass $aicode, mod_aicode_mod_form $mform = null
 
     $aicode->id = $DB->insert_record('aicode', $record);
 
-    // Create grade item.
-    $record->id = $aicode->id;
+    // Create grade item (use full form data so grade max from activity settings is applied).
     try {
-        aicode_grade_item_update($record);
+        aicode_grade_item_update($aicode);
     } catch (Exception $e) {
         debugging('Failed to create grade item: ' . $e->getMessage(), DEBUG_DEVELOPER);
         // Continue anyway - the activity is created, just no grade item
@@ -147,9 +146,9 @@ function aicode_update_instance(stdClass $aicode, mod_aicode_mod_form $mform = n
 
     $result = $DB->update_record('aicode', $record);
 
-    // Update grade item.
+    // Update grade item (preserve grade / idnumber from the activity form).
     try {
-        aicode_grade_item_update($record);
+        aicode_grade_item_update($aicode);
     } catch (Exception $e) {
         debugging('Failed to update grade item: ' . $e->getMessage(), DEBUG_DEVELOPER);
         // Continue anyway - the activity is updated, just no grade item update
@@ -174,6 +173,9 @@ function aicode_delete_instance($id) {
     // Delete all attempts for this problem.
     $DB->delete_records('aicode_attempts', ['problemid' => $id]);
 
+    // Remove gradebook column for this activity.
+    aicode_grade_item_delete($aicode);
+
     // Delete the problem.
     $DB->delete_records('aicode', ['id' => $id]);
 
@@ -192,9 +194,100 @@ function mod_aicode_supports($feature) {
 }
 
 /**
- * Create grade item for given aicode problem
+ * Build grade_item parameters for an AICode activity instance.
  *
- * @param stdClass $aicode object with extra cmidnumber
+ * Manual grading from Laporan Guru requires a numeric grade item. When the
+ * activity form leaves "Grade" at None (0), we still default to 0–100 so
+ * teachers can enter scores from the report page.
+ *
+ * @param stdClass $aicode Instance with at least id, course, name; optional grade, cmidnumber.
+ * @return array Parameters for grade_update() itemdetails.
+ */
+function aicode_build_grade_item_params(stdClass $aicode): array {
+    global $DB;
+
+    $params = ['itemname' => $aicode->name];
+
+    if (!empty($aicode->cmidnumber)) {
+        $params['idnumber'] = $aicode->cmidnumber;
+    }
+
+    $grademax = 100.0;
+
+    if (isset($aicode->grade)) {
+        $formgrade = (float) $aicode->grade;
+        if ($formgrade > 0) {
+            $grademax = $formgrade;
+        } else if ($formgrade < 0) {
+            $params['gradetype'] = GRADE_TYPE_SCALE;
+            $params['scaleid'] = (int) (-$formgrade);
+            return $params;
+        }
+    } else if (!empty($aicode->id)) {
+        $existing = $DB->get_record('grade_items', [
+            'courseid' => $aicode->course,
+            'itemtype' => 'mod',
+            'itemmodule' => 'aicode',
+            'iteminstance' => $aicode->id,
+            'itemnumber' => 0,
+        ], 'gradetype, grademax, scaleid', IGNORE_MISSING);
+        if ($existing && (int) $existing->gradetype === GRADE_TYPE_SCALE && $existing->scaleid) {
+            $params['gradetype'] = GRADE_TYPE_SCALE;
+            $params['scaleid'] = (int) $existing->scaleid;
+            return $params;
+        }
+        if ($existing && (int) $existing->gradetype === GRADE_TYPE_VALUE && $existing->grademax > 0) {
+            $grademax = (float) $existing->grademax;
+        }
+    }
+
+    $params['gradetype'] = GRADE_TYPE_VALUE;
+    $params['grademax'] = $grademax;
+    $params['grademin'] = 0;
+    $params['hidden'] = 0;
+
+    return $params;
+}
+
+/**
+ * Enrich an aicode instance object with gradebook metadata from the course module.
+ *
+ * @param stdClass $aicode Must contain id and course.
+ * @return stdClass Same object, enriched with cmidnumber and grade when available.
+ */
+function aicode_enrich_for_gradebook(stdClass $aicode): stdClass {
+    global $DB;
+
+    if (empty($aicode->id) || empty($aicode->course)) {
+        return $aicode;
+    }
+
+    $cm = get_coursemodule_from_instance('aicode', $aicode->id, $aicode->course, false, IGNORE_MISSING);
+    if ($cm) {
+        if (!isset($aicode->cmidnumber) && !empty($cm->idnumber)) {
+            $aicode->cmidnumber = $cm->idnumber;
+        }
+        if (!isset($aicode->grade)) {
+            $gi = $DB->get_record('grade_items', [
+                'courseid' => $aicode->course,
+                'itemtype' => 'mod',
+                'itemmodule' => 'aicode',
+                'iteminstance' => $aicode->id,
+                'itemnumber' => 0,
+            ], 'gradetype, grademax', IGNORE_MISSING);
+            if ($gi && (int) $gi->gradetype === GRADE_TYPE_VALUE && $gi->grademax > 0) {
+                $aicode->grade = (float) $gi->grademax;
+            }
+        }
+    }
+
+    return $aicode;
+}
+
+/**
+ * Create or update the gradebook column for an AICode activity.
+ *
+ * @param stdClass $aicode object with extra cmidnumber / grade from mod_form when available
  * @param mixed $grades optional array/object of grade(s); 'reset' means reset grades in gradebook
  * @return int 0 if ok, error code otherwise
  */
@@ -202,10 +295,8 @@ function aicode_grade_item_update($aicode, $grades = null) {
     global $CFG;
     require_once($CFG->libdir . '/gradelib.php');
 
-    $params = ['itemname' => $aicode->name];
-    $params['gradetype'] = GRADE_TYPE_VALUE;
-    $params['grademax'] = 100;
-    $params['grademin'] = 0;
+    $aicode = aicode_enrich_for_gradebook($aicode);
+    $params = aicode_build_grade_item_params($aicode);
 
     if ($grades === 'reset') {
         $params['reset'] = true;
@@ -213,6 +304,28 @@ function aicode_grade_item_update($aicode, $grades = null) {
     }
 
     return grade_update('mod/aicode', $aicode->course, 'mod', 'aicode', $aicode->id, 0, $grades, $params);
+}
+
+/**
+ * Delete the gradebook column for an AICode activity instance.
+ *
+ * @param stdClass $aicode
+ * @return int grade_update() status code
+ */
+function aicode_grade_item_delete(stdClass $aicode): int {
+    global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
+
+    return grade_update(
+        'mod/aicode',
+        $aicode->course,
+        'mod',
+        'aicode',
+        $aicode->id,
+        0,
+        null,
+        ['deleted' => 1]
+    );
 }
 
 /**
@@ -270,13 +383,12 @@ function aicode_extend_settings_navigation(settings_navigation $settingsnav, nav
  * @return int  Result of grade_update(): 0 = success, GRADE_UPDATE_FAILED etc.
  */
 function aicode_set_user_grade(stdClass $aicode, int $userid, ?float $rawgrade): int {
-    global $CFG;
-    require_once($CFG->libdir . '/gradelib.php');
-
-    $gradeobj           = new stdClass();
-    $gradeobj->userid   = $userid;
+    $gradeobj         = new stdClass();
+    $gradeobj->userid = $userid;
     $gradeobj->rawgrade = $rawgrade;
 
-    return grade_update('mod/aicode', $aicode->course, 'mod', 'aicode', $aicode->id, 0, [$userid => $gradeobj]);
+    // Pass itemdetails + grades together so the grade item is created/updated
+    // before user grades are written (required for gradebook visibility).
+    return aicode_grade_item_update($aicode, [$userid => $gradeobj]);
 }
 
