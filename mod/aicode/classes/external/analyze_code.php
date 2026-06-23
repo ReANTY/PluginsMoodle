@@ -269,40 +269,44 @@ class analyze_code extends external_api {
         $apikey = trim((string)get_config('aicode', 'gemini_api_key'));
         if ($apikey === '') {
             return self::build_ai_error_feedback(
-                'Gemini API key belum dikonfigurasi. Silakan isi API key di pengaturan plugin AICode.',
-                'gemini_api_key_missing'
+                'API key belum dikonfigurasi. Silakan isi API key OpenRouter di pengaturan plugin AICode.',
+                'api_key_missing'
             );
         }
 
         $model = trim((string)get_config('aicode', 'gemini_model'));
         if ($model === '') {
-            $model = 'gemini-2.0-flash';
+            $model = 'google/gemma-2-9b-it:free';
         }
 
         $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace, $teacherexamples);
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apikey);
+        $url = 'https://openrouter.ai/api/v1/chat/completions';
 
         $requestbody = json_encode([
-            'contents' => [
-                ['parts' => [['text' => $prompt]]],
+            'model' => $model,
+            'messages' => [
+                ['role' => 'user', 'content' => $prompt]
             ],
-            'generationConfig' => [
-                'temperature' => 0.2,
-                'topP' => 0.8,
-                'maxOutputTokens' => 2048,
-            ],
+            'temperature' => 0.2,
+            'top_p' => 0.8,
+            'max_tokens' => 2048,
         ]);
 
         try {
             $curl = new \curl();
-            $curl->setHeader(['Content-Type: application/json']);
+            $curl->setHeader([
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $apikey,
+                'HTTP-Referer: https://moodle.org',
+                'X-Title: Moodle AICode Plugin',
+            ]);
             $rawresponse = $curl->post($url, $requestbody);
             $httpcode = $curl->get_info()['http_code'] ?? 0;
 
             if ($curl->get_errno()) {
                 return self::build_ai_error_feedback(
-                    'Koneksi ke Gemini API gagal: ' . $curl->error . '. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
-                    'gemini_connection_error'
+                    'Koneksi ke OpenRouter API gagal: ' . $curl->error . '. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'openrouter_connection_error'
                 );
             }
 
@@ -310,25 +314,25 @@ class analyze_code extends external_api {
 
             if ($httpcode !== 200) {
                 $apierror = trim((string)($decoded['error']['message'] ?? ''));
-                $reason = $apierror !== '' ? 'Gemini API error: ' . $apierror : 'Gemini API mengembalikan status HTTP ' . $httpcode . '.';
+                $reason = $apierror !== '' ? 'OpenRouter API error: ' . $apierror : 'OpenRouter API mengembalikan status HTTP ' . $httpcode . '.';
                 return self::build_ai_error_feedback(
                     $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
-                    'gemini_api_error'
+                    'openrouter_api_error'
                 );
             }
 
-            $generatedcontent = trim((string)($decoded['candidates'][0]['content']['parts'][0]['text'] ?? ''));
+            $generatedcontent = trim((string)($decoded['choices'][0]['message']['content'] ?? ''));
             if ($generatedcontent === '') {
                 return self::build_ai_error_feedback(
-                    'Gemini API tidak menghasilkan teks. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
-                    'gemini_empty_response'
+                    'OpenRouter API tidak menghasilkan teks. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'openrouter_empty_response'
                 );
             }
 
             $feedback = self::extract_feedback_json($generatedcontent);
             if (!is_array($feedback)) {
                 return self::build_ai_error_feedback(
-                    'Format respons Gemini tidak valid. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'Format respons AI tidak valid. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                     'invalid_ai_response_format'
                 );
             }
@@ -338,7 +342,7 @@ class analyze_code extends external_api {
 
             if (!self::is_success_feedback($normalized)) {
                 return self::build_ai_error_feedback(
-                    'Respons Gemini tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'Respons AI tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                     'invalid_ai_feedback_schema'
                 );
             }
@@ -347,9 +351,9 @@ class analyze_code extends external_api {
         } catch (\Throwable $e) {
             $reason = trim((string)$e->getMessage());
             if ($reason === '') {
-                $reason = 'Permintaan Gemini API gagal.';
+                $reason = 'Permintaan OpenRouter API gagal.';
             } else {
-                $reason = 'Permintaan Gemini API gagal: ' . $reason;
+                $reason = 'Permintaan OpenRouter API gagal: ' . $reason;
             }
             return self::build_ai_error_feedback(
                 $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
