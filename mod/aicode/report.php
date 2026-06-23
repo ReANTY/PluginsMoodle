@@ -424,11 +424,28 @@ $modelabel = $aicode->mode === 'exam'
     : '<span class="badge bg-primary ms-2">Mode Latihan</span>';
 
 echo '<div class="aicode-rpt-page-head">';
+
+// Breadcrumb navigation to section and course dashboards.
+$cm_section = $DB->get_field('course_modules', 'section', ['id' => $cm->id]);
+echo '<div class="aicode-rpt-breadcrumb-nav" style="display:flex;gap:16px;margin-bottom:8px;font-size:.8125rem">';
+echo html_writer::link(
+    new moodle_url('/mod/aicode/course_report.php', ['courseid' => $course->id]),
+    '📊 Dashboard Course',
+    ['class' => 'aicode-rpt-back']
+);
+echo '<span style="color:#dee2e6">|</span>';
+echo html_writer::link(
+    new moodle_url('/mod/aicode/section_report.php', ['courseid' => $course->id, 'sectionid' => $cm_section]),
+    '📋 Dashboard Section',
+    ['class' => 'aicode-rpt-back']
+);
+echo '<span style="color:#dee2e6">|</span>';
 echo html_writer::link(
     new moodle_url('/mod/aicode/view.php', ['id' => $id]),
     '&larr; Kembali ke Aktivitas',
     ['class' => 'aicode-rpt-back']
 );
+echo '</div>';
 if ($userid > 0) {
     $headstudent = $DB->get_record('user', ['id' => $userid], 'id, firstname, lastname');
     echo '<h2>Detail Siswa: '

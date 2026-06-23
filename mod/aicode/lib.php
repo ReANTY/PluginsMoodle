@@ -392,3 +392,23 @@ function aicode_set_user_grade(stdClass $aicode, int $userid, ?float $rawgrade):
     return aicode_grade_item_update($aicode, [$userid => $gradeobj]);
 }
 
+/**
+ * Add "AICode Analytics" link to the course navigation for teachers.
+ *
+ * @param navigation_node $navigation The course navigation node.
+ * @param stdClass        $course     The course record.
+ * @param context_course  $context    The course context.
+ */
+function aicode_extend_navigation_course(navigation_node $navigation, stdClass $course, context_course $context) {
+    if (has_capability('moodle/grade:viewall', $context)) {
+        $url = new moodle_url('/mod/aicode/course_report.php', ['courseid' => $course->id]);
+        $navigation->add(
+            'AICode Analytics',
+            $url,
+            navigation_node::TYPE_CUSTOM,
+            null,
+            'aicode_course_analytics',
+            new pix_icon('i/report', 'AICode Analytics')
+        );
+    }
+}

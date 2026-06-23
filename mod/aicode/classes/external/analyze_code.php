@@ -109,10 +109,18 @@ class analyze_code extends external_api {
 
         $prompttemplate = self::resolve_ai_prompt_template($problem);
 
+        // Fetch teacher correction examples early so they influence the cache key.
+        // When a teacher adds/removes a few-shot override the hash changes,
+        // preventing stale cached responses from being served.
+        $teacherexamples = (int)$params['problemid'] > 0
+            ? self::get_teacher_correction_examples((int)$params['problemid'])
+            : '';
+
         // Check cache.
         $payloadhash = hash(
             'sha256',
-            'feedback-v5|' . hash('sha256', $prompttemplate) . '|' . $params['code'] . $params['stderr'] . $params['trace']
+            'feedback-v6|' . hash('sha256', $prompttemplate) . '|' . hash('sha256', $teacherexamples)
+            . '|' . $params['code'] . $params['stderr'] . $params['trace']
         );
         $cachettl = get_config('aicode', 'cache_ttl') ?: 3600;
         $cached = $DB->get_record('aicode_cache', ['payload_hash' => $payloadhash]);
@@ -146,7 +154,7 @@ class analyze_code extends external_api {
             (string)$params['stderr'],
             (string)$params['trace'],
             $prompttemplate,
-            (int)$params['problemid']
+            $teacherexamples
         );
         if (!is_array($feedback)) {
             $feedback = self::build_ai_error_feedback(
@@ -254,10 +262,10 @@ class analyze_code extends external_api {
      * @param string $stderr
      * @param string $trace
      * @param string $prompttemplate
-     * @param int    $problemid  Used to fetch teacher correction examples for few-shot injection.
+     * @param string $teacherexamples  Pre-fetched few-shot examples from teacher corrections.
      * @return array
      */
-    private static function get_feedback_from_gemini($code, $stderr, $trace, $prompttemplate, $problemid = 0) {
+    private static function get_feedback_from_gemini($code, $stderr, $trace, $prompttemplate, $teacherexamples = '') {
         $apikey = trim((string)get_config('aicode', 'gemini_api_key'));
         if ($apikey === '') {
             return self::build_ai_error_feedback(
@@ -271,7 +279,6 @@ class analyze_code extends external_api {
             $model = 'gemini-2.0-flash';
         }
 
-        $teacherexamples = $problemid > 0 ? self::get_teacher_correction_examples($problemid) : '';
         $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace, $teacherexamples);
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apikey);
 
