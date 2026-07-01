@@ -66,6 +66,18 @@ $string['allowtraining'] = 'Allow anonymized data for model training';
 $string['allowtraining_desc'] = 'Allow anonymized student code to be used for improving AI models (opt-in)';
 
 // Admin settings.
+$string['aiprovider'] = 'AI Provider';
+$string['aiprovider_desc'] = 'Select the AI provider to generate code analysis and feedback.';
+$string['aiprovider_openrouter'] = 'OpenRouter';
+$string['aiprovider_gemini'] = 'Google Gemini';
+$string['openrouterapikey'] = 'OpenRouter API key';
+$string['openrouterapikey_desc'] = 'API key for OpenRouter (starts with sk-or-).';
+$string['openroutermodel'] = 'OpenRouter model';
+$string['openroutermodel_desc'] = 'The OpenRouter model to use (e.g., google/gemma-2-9b-it:free).';
+$string['geminiapikey'] = 'Google Gemini API key';
+$string['geminiapikey_desc'] = 'API key for Google Gemini (from Google AI Studio).';
+$string['geminimodel'] = 'Google Gemini model';
+$string['geminimodel_desc'] = 'The Google Gemini model to use (e.g., gemini-2.0-flash).';
 $string['executorurl'] = 'Executor service URL';
 $string['executorurl_desc'] = 'URL of the code execution microservice (e.g., http://127.0.0.1:3001)';
 $string['aifeedbackprompttemplate'] = 'Default AI feedback prompt template';

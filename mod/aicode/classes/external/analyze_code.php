@@ -149,7 +149,7 @@ class analyze_code extends external_api {
 
         // Anonymize code (strip comments with names, emails, etc.).
         $anonymizedcode = self::anonymize_code($params['code']);
-        $feedback = self::get_feedback_from_gemini(
+        $feedback = self::get_ai_feedback(
             $anonymizedcode,
             (string)$params['stderr'],
             (string)$params['trace'],
@@ -256,7 +256,7 @@ class analyze_code extends external_api {
     }
 
     /**
-     * Get AI feedback via Google Gemini API.
+     * Get AI feedback via the configured provider (OpenRouter or Google Gemini).
      *
      * @param string $code
      * @param string $stderr
@@ -265,8 +265,129 @@ class analyze_code extends external_api {
      * @param string $teacherexamples  Pre-fetched few-shot examples from teacher corrections.
      * @return array
      */
-    private static function get_feedback_from_gemini($code, $stderr, $trace, $prompttemplate, $teacherexamples = '') {
+    private static function get_ai_feedback($code, $stderr, $trace, $prompttemplate, $teacherexamples = '') {
+        $provider = trim((string)get_config('aicode', 'ai_provider'));
+        if ($provider === '') {
+            $provider = 'openrouter'; // default fallback
+        }
+
+        $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace, $teacherexamples);
+
+        if ($provider === 'gemini') {
+            return self::call_google_gemini_api($prompt);
+        } else {
+            return self::call_openrouter_api($prompt);
+        }
+    }
+
+    /**
+     * Call Google Gemini API directly.
+     *
+     * @param string $prompt
+     * @return array
+     */
+    private static function call_google_gemini_api($prompt) {
         $apikey = trim((string)get_config('aicode', 'gemini_api_key'));
+        if ($apikey === '') {
+            return self::build_ai_error_feedback(
+                'API key belum dikonfigurasi. Silakan isi API key Google Gemini di pengaturan plugin AICode.',
+                'api_key_missing'
+            );
+        }
+
+        $model = trim((string)get_config('aicode', 'gemini_model'));
+        if ($model === '') {
+            $model = 'gemini-2.5-flash';
+        }
+
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent?key=' . $apikey;
+
+        $requestbody = json_encode([
+            'contents' => [
+                [
+                    'parts' => [
+                        ['text' => $prompt]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.2,
+                'topP' => 0.8,
+                'maxOutputTokens' => 2048,
+            ]
+        ]);
+
+        try {
+            $curl = new \curl();
+            $curl->setHeader([
+                'Content-Type: application/json',
+            ]);
+            $rawresponse = $curl->post($url, $requestbody);
+            $httpcode = $curl->get_info()['http_code'] ?? 0;
+
+            if ($curl->get_errno()) {
+                return self::build_ai_error_feedback(
+                    'Koneksi ke Google Gemini API gagal: ' . $curl->error . '. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'gemini_connection_error'
+                );
+            }
+
+            $decoded = json_decode($rawresponse, true);
+
+            if ($httpcode !== 200) {
+                $apierror = trim((string)($decoded['error']['message'] ?? ''));
+                $reason = $apierror !== '' ? 'Google Gemini API error: ' . $apierror : 'Google Gemini API mengembalikan status HTTP ' . $httpcode . '.';
+                return self::build_ai_error_feedback(
+                    $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'gemini_api_error'
+                );
+            }
+
+            $generatedcontent = trim((string)($decoded['candidates'][0]['content']['parts'][0]['text'] ?? ''));
+            if ($generatedcontent === '') {
+                return self::build_ai_error_feedback(
+                    'Google Gemini API tidak menghasilkan teks. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'gemini_empty_response'
+                );
+            }
+
+            $feedback = self::extract_feedback_json($generatedcontent);
+            if (!is_array($feedback)) {
+                return self::build_ai_error_feedback(
+                    'Format respons AI tidak valid. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'invalid_ai_response_format'
+                );
+            }
+
+            $normalized = self::normalize_feedback($feedback);
+            $normalized['explainability'] = trim($normalized['explainability'] . ' (model: ' . $model . ')');
+
+            if (!self::is_success_feedback($normalized)) {
+                return self::build_ai_error_feedback(
+                    'Respons AI tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                    'invalid_ai_feedback_schema'
+                );
+            }
+
+            return $normalized;
+        } catch (\Throwable $e) {
+            $reason = trim((string)$e->getMessage());
+            $reason = $reason === '' ? 'Permintaan Google Gemini API gagal.' : 'Permintaan Google Gemini API gagal: ' . $reason;
+            return self::build_ai_error_feedback(
+                $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
+                'ai_request_failed'
+            );
+        }
+    }
+
+    /**
+     * Call OpenRouter API.
+     *
+     * @param string $prompt
+     * @return array
+     */
+    private static function call_openrouter_api($prompt) {
+        $apikey = trim((string)get_config('aicode', 'openrouter_api_key'));
         if ($apikey === '') {
             return self::build_ai_error_feedback(
                 'API key belum dikonfigurasi. Silakan isi API key OpenRouter di pengaturan plugin AICode.',
@@ -274,12 +395,11 @@ class analyze_code extends external_api {
             );
         }
 
-        $model = trim((string)get_config('aicode', 'gemini_model'));
+        $model = trim((string)get_config('aicode', 'openrouter_model'));
         if ($model === '') {
             $model = 'google/gemma-2-9b-it:free';
         }
 
-        $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace, $teacherexamples);
         $url = 'https://openrouter.ai/api/v1/chat/completions';
 
         $requestbody = json_encode([
@@ -350,11 +470,7 @@ class analyze_code extends external_api {
             return $normalized;
         } catch (\Throwable $e) {
             $reason = trim((string)$e->getMessage());
-            if ($reason === '') {
-                $reason = 'Permintaan OpenRouter API gagal.';
-            } else {
-                $reason = 'Permintaan OpenRouter API gagal: ' . $reason;
-            }
+            $reason = $reason === '' ? 'Permintaan OpenRouter API gagal.' : 'Permintaan OpenRouter API gagal: ' . $reason;
             return self::build_ai_error_feedback(
                 $reason . ' Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                 'ai_request_failed'

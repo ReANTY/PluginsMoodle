@@ -41,6 +41,20 @@ $string['aicode:submit'] = 'Kirim kode untuk dieksekusi';
 $string['aicode:viewattempts'] = 'Lihat percobaan siswa';
 $string['aicode:overridefeedback'] = 'Ubah umpan balik AI';
 
+// Pengaturan Admin.
+$string['aiprovider'] = 'Provider AI';
+$string['aiprovider_desc'] = 'Pilih provider AI yang akan digunakan untuk menghasilkan analisis dan umpan balik kode.';
+$string['aiprovider_openrouter'] = 'OpenRouter';
+$string['aiprovider_gemini'] = 'Google Gemini';
+$string['openrouterapikey'] = 'OpenRouter API key';
+$string['openrouterapikey_desc'] = 'API key untuk OpenRouter (biasanya berawalan sk-or-).';
+$string['openroutermodel'] = 'OpenRouter model';
+$string['openroutermodel_desc'] = 'Model OpenRouter yang akan digunakan (contoh: google/gemma-2-9b-it:free).';
+$string['geminiapikey'] = 'Google Gemini API key';
+$string['geminiapikey_desc'] = 'API key untuk Google Gemini (dari Google AI Studio).';
+$string['geminimodel'] = 'Google Gemini model';
+$string['geminimodel_desc'] = 'Model Google Gemini yang akan digunakan (contoh: gemini-2.0-flash).';
+
 $string['activitylog_pagetitle'] = 'Log metadata aktivitas AICode';
 $string['activitylog_exportheading'] = 'Ekspor log aktivitas (CSV)';
 $string['activitylog_exportdesc'] = 'Unduh CSV UTF-8 berisi kejadian sisi-server. Ada kolom snapshot: nama siswa saat itu, mode latihan/ujian, jumlah AI Hint kumulatif, jumlah run kumulatif, jumlah kirim ke guru, dan nilai jika sudah ada di buku nilai. Kode siswa tidak disimpan di tabel ini.';

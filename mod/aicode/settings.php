@@ -17,6 +17,30 @@
 defined('MOODLE_INTERNAL') || die;
 
 if ($ADMIN->fulltree) {
+    // AI Provider Selection.
+    $provideroptions = [
+        'openrouter' => get_string('aiprovider_openrouter', 'aicode'),
+        'gemini'     => get_string('aiprovider_gemini', 'aicode'),
+    ];
+    $settings->add(new admin_setting_configselect('aicode/ai_provider',
+        get_string('aiprovider', 'aicode'),
+        get_string('aiprovider_desc', 'aicode'),
+        'openrouter',
+        $provideroptions));
+
+    // OpenRouter API key.
+    $settings->add(new admin_setting_configpasswordunmask('aicode/openrouter_api_key',
+        get_string('openrouterapikey', 'aicode'),
+        get_string('openrouterapikey_desc', 'aicode'),
+        ''));
+
+    // OpenRouter model.
+    $settings->add(new admin_setting_configtext('aicode/openrouter_model',
+        get_string('openroutermodel', 'aicode'),
+        get_string('openroutermodel_desc', 'aicode'),
+        'google/gemma-2-9b-it:free',
+        PARAM_TEXT));
+
     // Gemini API key.
     $settings->add(new admin_setting_configpasswordunmask('aicode/gemini_api_key',
         get_string('geminiapikey', 'aicode'),
@@ -27,7 +51,7 @@ if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configtext('aicode/gemini_model',
         get_string('geminimodel', 'aicode'),
         get_string('geminimodel_desc', 'aicode'),
-        'gemini-2.0-flash',
+        'gemini-2.5-flash',
         PARAM_TEXT));
 
     // Executor service URL.
