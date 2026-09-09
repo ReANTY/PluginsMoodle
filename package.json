@@ -62,5 +62,9 @@
     "not op_mini all",
     "not Opera > 0",
     "not dead"
-  ]
+  ],
+  "dependencies": {
+    "docx": "^9.7.1",
+    "pdf-parse": "^2.4.5"
+  }
 }

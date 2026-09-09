@@ -1222,6 +1222,80 @@ if ($userid > 0) {
                 }
 
                 echo '<div class="aicode-rpt-ai-explain">' . s($atfb['explainability'] ?? '') . '</div>';
+
+                // ── AI Performance Metrics Panel ─────────────────────
+                $perf = $atfb['_performance'] ?? null;
+                if (!empty($perf) && is_array($perf)) {
+                    $perflatency = isset($perf['latency_ms']) ? number_format($perf['latency_ms'] / 1000, 2) . 's' : '—';
+                    $perfconf    = isset($perf['confidence']) ? (int)round((float)$perf['confidence'] * 100) . '%' : '—';
+                    $perfconfval = (float)($perf['confidence'] ?? 0);
+                    $perfconfcls = $perfconfval >= 0.7 ? 'bg-success' : ($perfconfval >= 0.4 ? 'bg-warning text-dark' : 'bg-danger');
+                    $perfcache   = !empty($perf['from_cache']) ? 'Ya ✓' : 'Tidak';
+                    $perfcachecls = !empty($perf['from_cache']) ? 'text-success' : 'text-muted';
+                    $perfprovider = s($perf['provider'] ?? '—');
+                    $perfmodel   = s($perf['model'] ?? '—');
+                    $perftemp    = isset($perf['temperature']) ? number_format((float)$perf['temperature'], 1) : '—';
+                    $perfptkn    = isset($perf['prompt_tokens']) ? number_format((int)$perf['prompt_tokens']) : '—';
+                    $perfrtkn    = isset($perf['response_tokens']) ? number_format((int)$perf['response_tokens']) : '—';
+                    $perfttkn    = isset($perf['total_tokens']) ? number_format((int)$perf['total_tokens']) : '—';
+                    $perfplen    = isset($perf['prompt_length']) ? number_format((int)$perf['prompt_length']) . ' chars' : '—';
+                    $perftime    = !empty($perf['timestamp']) ? aicode_rpt_format_wib((int)$perf['timestamp']) : '—';
+
+                    $perfuid = 'perf-' . (int)$userid . '-' . $idx;
+
+                    echo '<details class="aicode-rpt-ai-perf mt-2" style="border-top:1px solid rgba(0,0,0,.08);padding-top:6px;">';
+                    echo '<summary style="cursor:pointer;font-size:0.82em;color:#555;user-select:none;">';
+                    echo '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" '
+                        . 'style="vertical-align:-2px;margin-right:4px;opacity:.7;">'
+                        . '<path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 '
+                        . '2.246 2.246 0 0 1-4.492 0z"/>'
+                        . '<path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892'
+                        . '-3.433.902-1.793 1.793l.16.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a'
+                        . '.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 1.793 1.793l.292-.16a.873.873 0 0 1 1.255.52l.094'
+                        . '.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 1.793-1.793'
+                        . 'l-.16-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255'
+                        . 'l.16-.292c.893-1.64-.902-3.433-1.793-1.793l-.292.16a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>';
+                    echo 'Performa AI & Prompt</summary>';
+
+                    echo '<div style="margin-top:8px;font-size:0.82em;">';
+                    echo '<table class="table table-sm table-borderless mb-2" style="font-size:0.95em;">';
+                    echo '<tbody>';
+                    $perfrows = [
+                        ['Provider', '<strong>' . $perfprovider . '</strong>'],
+                        ['Model', '<code style="font-size:0.9em;background:#e9ecef;padding:1px 5px;border-radius:3px;">' . $perfmodel . '</code>'],
+                        ['Latensi', !empty($perf['from_cache'])
+                            ? '<span class="' . $perfcachecls . ' fw-semibold">Dari Cache</span>'
+                            : '<strong>' . $perflatency . '</strong>'],
+                        ['Kepercayaan', '<span class="badge ' . $perfconfcls . '">' . $perfconf . '</span>'],
+                        ['Token Prompt', $perfptkn],
+                        ['Token Respons', $perfrtkn],
+                        ['Total Token', $perfttkn],
+                        ['Panjang Prompt', $perfplen],
+                        ['Temperature', $perftemp],
+                        ['Dari Cache', '<span class="' . $perfcachecls . ' fw-semibold">' . $perfcache . '</span>'],
+                        ['Waktu Generasi', $perftime],
+                    ];
+                    foreach ($perfrows as $pr) {
+                        echo '<tr><td style="color:#666;white-space:nowrap;width:130px;padding:2px 6px 2px 0;">'
+                            . $pr[0] . '</td><td style="padding:2px 0;">' . $pr[1] . '</td></tr>';
+                    }
+                    echo '</tbody></table>';
+
+                    // Prompt text (collapsible within).
+                    $prompttext = $perf['prompt_text'] ?? '';
+                    if ($prompttext !== '') {
+                        echo '<details class="mt-1" style="border-top:1px dashed rgba(0,0,0,.08);padding-top:4px;">';
+                        echo '<summary style="cursor:pointer;font-size:0.9em;color:#777;user-select:none;">'
+                            . '📝 Lihat Prompt Lengkap (' . number_format(strlen($prompttext)) . ' chars)</summary>';
+                        echo '<pre style="max-height:300px;overflow:auto;background:#f8f9fa;border:1px solid #dee2e6;'
+                            . 'border-radius:4px;padding:8px;font-size:0.85em;margin-top:6px;white-space:pre-wrap;'
+                            . 'word-wrap:break-word;">' . s($prompttext) . '</pre>';
+                        echo '</details>';
+                    }
+
+                    echo '</div></details>';
+                }
+
                 echo '</div>'; // tl-aifb
             }
 

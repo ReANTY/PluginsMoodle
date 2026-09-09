@@ -132,6 +132,25 @@ class analyze_code extends external_api {
                 if ($latestattempt) {
                     $DB->set_field('aicode_attempts', 'ai_requested_at', time(), ['id' => $latestattempt->id]);
                 }
+                // Inject cache performance metadata.
+                $provider = trim((string)get_config('aicode', 'ai_provider')) ?: 'openrouter';
+                $model = $provider === 'gemini'
+                    ? (trim((string)get_config('aicode', 'gemini_model')) ?: 'gemini-2.5-flash')
+                    : (trim((string)get_config('aicode', 'openrouter_model')) ?: 'google/gemma-2-9b-it:free');
+                $cachedfeedback['_performance'] = [
+                    'provider'       => $provider,
+                    'model'          => $model,
+                    'latency_ms'     => 0,
+                    'from_cache'     => true,
+                    'confidence'     => (float)($cachedfeedback['diagnosis']['confidence'] ?? 0),
+                    'temperature'    => 0.2,
+                    'prompt_length'  => 0,
+                    'prompt_tokens'  => 0,
+                    'response_tokens' => 0,
+                    'total_tokens'   => 0,
+                    'timestamp'      => time(),
+                ];
+                $cachedjson = json_encode($cachedfeedback);
                 \mod_aicode\local\activity_log::record(
                     $context,
                     (int) $params['problemid'],
@@ -143,24 +162,31 @@ class analyze_code extends external_api {
                     ],
                     $problem
                 );
-                return ['feedback' => $cached->ai_response_json];
+                return ['feedback' => $cachedjson];
             }
         }
 
         // Anonymize code (strip comments with names, emails, etc.).
         $anonymizedcode = self::anonymize_code($params['code']);
-        $feedback = self::get_ai_feedback(
+        $airesult = self::get_ai_feedback(
             $anonymizedcode,
             (string)$params['stderr'],
             (string)$params['trace'],
             $prompttemplate,
             $teacherexamples
         );
+        // get_ai_feedback now returns ['feedback' => ..., '_performance' => ...].
+        $feedback = $airesult['feedback'] ?? $airesult;
+        $performancemeta = $airesult['_performance'] ?? [];
         if (!is_array($feedback)) {
             $feedback = self::build_ai_error_feedback(
                 'Feedback AI tidak dapat diproses. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                 'invalid_feedback_payload'
             );
+        }
+        // Inject performance metadata into the feedback payload.
+        if (!empty($performancemeta)) {
+            $feedback['_performance'] = $performancemeta;
         }
 
         // Validate confidence threshold for successful AI responses only.
@@ -236,7 +262,18 @@ class analyze_code extends external_api {
             $problem
         );
 
-        return ['feedback' => $feedbackjson];
+        // Strip prompt_text from the feedback returned to the student (it's large
+        // and only useful for teachers who access it via the stored ai_feedback_json).
+        $studentfeedback = $feedback;
+        if (isset($studentfeedback['_performance']['prompt_text'])) {
+            unset($studentfeedback['_performance']['prompt_text']);
+        }
+        $studentjson = json_encode($studentfeedback);
+        if ($studentjson === false) {
+            $studentjson = $feedbackjson;
+        }
+
+        return ['feedback' => $studentjson];
     }
 
     /**
@@ -258,6 +295,10 @@ class analyze_code extends external_api {
     /**
      * Get AI feedback via the configured provider (OpenRouter or Google Gemini).
      *
+     * Returns an array with keys:
+     *   - 'feedback': The AI feedback array (diagnosis, hints, etc.)
+     *   - '_performance': Performance metadata (latency, tokens, model, prompt, etc.)
+     *
      * @param string $code
      * @param string $stderr
      * @param string $trace
@@ -272,12 +313,57 @@ class analyze_code extends external_api {
         }
 
         $prompt = self::build_ai_feedback_prompt($prompttemplate, $code, $stderr, $trace, $teacherexamples);
+        $promptlength = strlen($prompt);
+        // Rough token estimate: ~4 chars per token for mixed Indonesian/code text.
+        $prompttokens = (int)ceil($promptlength / 4);
 
+        $starttime = microtime(true);
         if ($provider === 'gemini') {
-            return self::call_google_gemini_api($prompt);
+            $apiresult = self::call_google_gemini_api($prompt);
         } else {
-            return self::call_openrouter_api($prompt);
+            $apiresult = self::call_openrouter_api($prompt);
         }
+        $latencyms = (int)round((microtime(true) - $starttime) * 1000);
+
+        // Separate feedback from any inline performance data the API method attached.
+        $feedback = $apiresult;
+        $inlineperf = [];
+        if (isset($apiresult['_api_perf'])) {
+            $inlineperf = $apiresult['_api_perf'];
+            unset($feedback['_api_perf']);
+        }
+
+        $model = $provider === 'gemini'
+            ? (trim((string)get_config('aicode', 'gemini_model')) ?: 'gemini-2.5-flash')
+            : (trim((string)get_config('aicode', 'openrouter_model')) ?: 'google/gemma-2-9b-it:free');
+
+        $responsetokens = (int)($inlineperf['response_tokens'] ?? 0);
+        $totaltokens    = (int)($inlineperf['total_tokens'] ?? 0);
+        // If API didn't report prompt tokens, use our estimate.
+        $actualprompttkn = (int)($inlineperf['prompt_tokens'] ?? $prompttokens);
+        if ($totaltokens === 0 && $actualprompttkn > 0) {
+            $totaltokens = $actualprompttkn + $responsetokens;
+        }
+
+        $performancemeta = [
+            'provider'        => $provider,
+            'model'           => $model,
+            'latency_ms'      => $latencyms,
+            'from_cache'      => false,
+            'confidence'      => (float)($feedback['diagnosis']['confidence'] ?? 0),
+            'temperature'     => 0.2,
+            'prompt_length'   => $promptlength,
+            'prompt_tokens'   => $actualprompttkn,
+            'response_tokens' => $responsetokens,
+            'total_tokens'    => $totaltokens,
+            'timestamp'       => time(),
+            'prompt_text'     => $prompt,
+        ];
+
+        return [
+            'feedback'     => $feedback,
+            '_performance' => $performancemeta,
+        ];
     }
 
     /**
@@ -351,6 +437,15 @@ class analyze_code extends external_api {
                 );
             }
 
+            // Extract token usage from Gemini response metadata.
+            $apiperf = [];
+            $usagemeta = $decoded['usageMetadata'] ?? [];
+            if (!empty($usagemeta)) {
+                $apiperf['prompt_tokens']   = (int)($usagemeta['promptTokenCount'] ?? 0);
+                $apiperf['response_tokens'] = (int)($usagemeta['candidatesTokenCount'] ?? 0);
+                $apiperf['total_tokens']    = (int)($usagemeta['totalTokenCount'] ?? 0);
+            }
+
             $feedback = self::extract_feedback_json($generatedcontent);
             if (!is_array($feedback)) {
                 return self::build_ai_error_feedback(
@@ -367,6 +462,11 @@ class analyze_code extends external_api {
                     'Respons AI tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                     'invalid_ai_feedback_schema'
                 );
+            }
+
+            // Attach API-level performance data for the caller to merge.
+            if (!empty($apiperf)) {
+                $normalized['_api_perf'] = $apiperf;
             }
 
             return $normalized;
@@ -449,6 +549,15 @@ class analyze_code extends external_api {
                 );
             }
 
+            // Extract token usage from OpenRouter response.
+            $apiperf = [];
+            $usagedata = $decoded['usage'] ?? [];
+            if (!empty($usagedata)) {
+                $apiperf['prompt_tokens']   = (int)($usagedata['prompt_tokens'] ?? 0);
+                $apiperf['response_tokens'] = (int)($usagedata['completion_tokens'] ?? 0);
+                $apiperf['total_tokens']    = (int)($usagedata['total_tokens'] ?? 0);
+            }
+
             $feedback = self::extract_feedback_json($generatedcontent);
             if (!is_array($feedback)) {
                 return self::build_ai_error_feedback(
@@ -465,6 +574,11 @@ class analyze_code extends external_api {
                     'Respons AI tidak memenuhi format feedback yang diperlukan. Silakan klik tombol Bantuan lagi beberapa saat lagi.',
                     'invalid_ai_feedback_schema'
                 );
+            }
+
+            // Attach API-level performance data for the caller to merge.
+            if (!empty($apiperf)) {
+                $normalized['_api_perf'] = $apiperf;
             }
 
             return $normalized;

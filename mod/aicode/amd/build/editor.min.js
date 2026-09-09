@@ -1376,6 +1376,81 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
   };
 
   /**
+   * Build HTML for AI performance metrics panel (collapsible)
+   * @param {object} perf - The _performance object from feedback
+   * @return {string}
+   */
+  const buildPerformancePanelHtml = function (perf) {
+    if (!perf || typeof perf !== "object") {
+      return "";
+    }
+
+    const perfId = "aicode-perf-" + Date.now();
+    const latency = perf.latency_ms ? (perf.latency_ms / 1000).toFixed(2) + "s" : "—";
+    const confidence = typeof perf.confidence === "number" ? Math.round(perf.confidence * 100) + "%" : "—";
+    const confValue = typeof perf.confidence === "number" ? perf.confidence : 0;
+    const confColor = confValue >= 0.7 ? "#198754" : confValue >= 0.4 ? "#ffc107" : "#dc3545";
+    const fromCache = perf.from_cache ? "Ya ✓" : "Tidak";
+    const cacheColor = perf.from_cache ? "#198754" : "#6c757d";
+    const provider = escapeHtml(String(perf.provider || "—"));
+    const model = escapeHtml(String(perf.model || "—"));
+    const temperature = typeof perf.temperature === "number" ? perf.temperature.toFixed(1) : "—";
+    const promptTokens = perf.prompt_tokens ? perf.prompt_tokens.toLocaleString() : "—";
+    const responseTokens = perf.response_tokens ? perf.response_tokens.toLocaleString() : "—";
+    const totalTokens = perf.total_tokens ? perf.total_tokens.toLocaleString() : "—";
+    const timestamp = perf.timestamp
+      ? new Date(perf.timestamp * 1000).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) + " WIB"
+      : "—";
+
+    let html = '<details class="aicode-perf-details mt-2" style="border-top:1px solid rgba(0,0,0,.1);padding-top:8px;">';
+    html += '<summary style="cursor:pointer;font-size:0.82em;color:#555;user-select:none;">';
+    html += '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" '
+        + 'style="vertical-align:-2px;margin-right:4px;opacity:.7;">'
+        + '<path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 '
+        + '2.246 2.246 0 0 1-4.492 0z"/>'
+        + '<path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433'
+        + '.902-1.793 1.793l.16.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1'
+        + ' .52 1.255l-.16.292c-.892 1.64.901 3.434 1.793 1.793l.292-.16a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 '
+        + '1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 1.793-1.793l-.16-.292a.873.873 0 0 1'
+        + ' .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433'
+        + '-1.793-1.793l-.292.16a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873'
+        + ' 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c'
+        + '.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159'
+        + 'a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-'
+        + '.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1'
+        + '.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2'
+        + '.692-1.115l.094-.319z"/></svg>';
+    html += "Performa AI";
+    html += "</summary>";
+    html += '<div style="margin-top:8px;font-size:0.8em;">';
+    html += '<table style="width:100%;border-collapse:collapse;">';
+
+    const rows = [
+      ["Provider", '<span style="font-weight:600;">' + provider + "</span>"],
+      ["Model", '<code style="font-size:0.92em;background:#e9ecef;padding:1px 5px;border-radius:3px;">' + model + "</code>"],
+      ["Latensi", perf.from_cache
+        ? '<span style="color:' + cacheColor + ';font-weight:600;">Dari Cache</span>'
+        : '<span style="font-weight:600;">' + escapeHtml(latency) + "</span>"],
+      ["Kepercayaan", '<span style="color:' + confColor + ';font-weight:600;">' + escapeHtml(confidence) + "</span>"],
+      ["Token Prompt", escapeHtml(promptTokens)],
+      ["Token Respons", escapeHtml(responseTokens)],
+      ["Total Token", escapeHtml(totalTokens)],
+      ["Temperature", escapeHtml(temperature)],
+      ["Dari Cache", '<span style="color:' + cacheColor + ';font-weight:600;">' + escapeHtml(fromCache) + "</span>"],
+      ["Waktu", escapeHtml(timestamp)],
+    ];
+
+    rows.forEach(function (row) {
+      html += '<tr style="border-bottom:1px solid rgba(0,0,0,.06);">'
+        + '<td style="padding:3px 6px 3px 0;color:#666;white-space:nowrap;width:130px;">' + row[0] + "</td>"
+        + '<td style="padding:3px 0;">' + row[1] + "</td></tr>";
+    });
+
+    html += "</table></div></details>";
+    return html;
+  };
+
+  /**
    * Display AI feedback
    * @param {object} feedback
    */
@@ -1412,6 +1487,11 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
 
     if (feedback && feedback.explainability) {
       html += `<p class="mt-2 mb-0"><small>${escapeHtml(String(feedback.explainability))}</small></p>`;
+    }
+
+    // AI Performance panel (collapsible).
+    if (feedback && feedback._performance) {
+      html += buildPerformancePanelHtml(feedback._performance);
     }
 
     html += "</div>";
