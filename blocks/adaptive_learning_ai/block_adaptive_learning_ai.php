@@ -1,6 +1,9 @@
 <?php
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/lib.php');
+require_once(__DIR__ . '/classes/path_manager.php');
+
 class block_adaptive_learning_ai extends block_base {
 
     public function init() {
