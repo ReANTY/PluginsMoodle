@@ -1,0 +1,108 @@
+{{!
+    @template local_llmmotivation/encouragement_message
+
+    Motivation popup that requires the learner to report how they feel after
+    receiving the encouragement message.
+}}
+<div class="acmls-motivation-popup"
+     data-userid="{{userid}}"
+     data-courseid="{{courseid}}"
+     data-sentenceid="{{sentenceid}}"
+     data-category="{{category}}"
+     data-source="{{source}}"
+     data-content="{{content}}">
+    <div class="acmls-motivation-popup__backdrop"></div>
+    <div class="acmls-motivation-popup__dialog"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="acmls-motivation-title-{{userid}}-{{sentenceid}}">
+        <div class="acmls-motivation-popup__header">
+            <div>
+                <p class="acmls-motivation-popup__eyebrow">{{str_popup_title}}</p>
+                <h3 id="acmls-motivation-title-{{userid}}-{{sentenceid}}" class="acmls-motivation-popup__title">
+                    {{category_label}}
+                </h3>
+            </div>
+        </div>
+
+        <div class="acmls-motivation-popup__body">
+            <p class="acmls-motivation-popup__message">{{content}}</p>
+            {{#has_suggestion}}
+            <div class="acmls-motivation-suggestion-box p-3 mb-3 rounded" style="background: #f0f9ff; border-left: 4px solid #0284c7;">
+                <div class="font-weight-bold mb-1" style="color: #0369a1; font-size: 0.95rem;">
+                    <i class="fa fa-lightbulb-o mr-1" aria-hidden="true"></i> {{str_suggestion_title}}
+                </div>
+                <p class="acmls-motivation-popup__suggestion m-0" style="font-size: 0.95rem; line-height: 1.6; color: #0f172a;">
+                    {{suggestion}}
+                </p>
+            </div>
+            {{/has_suggestion}}
+            <p class="acmls-motivation-popup__helper">{{str_popup_body}}</p>
+
+            <form class="acmls-motivation-feedback-form" novalidate>
+                <div class="acmls-motivation-popup__questions">
+                    <fieldset class="acmls-motivation-popup__fieldset mb-3 border p-2">
+                        <legend class="acmls-motivation-popup__legend h6 px-2">{{str_e1_prompt}}</legend>
+                        <div class="acmls-motivation-popup__options d-flex justify-content-between flex-wrap px-2">
+                            {{#likert_options}}
+                            <label class="acmls-motivation-popup__option mr-3">
+                                <input type="radio"
+                                       name="acmls-e1-{{userid}}-{{sentenceid}}"
+                                       value="{{score}}"
+                                       data-score="{{score}}">
+                                <span class="ml-1">{{label}}</span>
+                            </label>
+                            {{/likert_options}}
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="acmls-motivation-popup__fieldset mb-3 border p-2">
+                        <legend class="acmls-motivation-popup__legend h6 px-2">{{str_e2_prompt}}</legend>
+                        <div class="acmls-motivation-popup__options d-flex justify-content-between flex-wrap px-2">
+                            {{#likert_options}}
+                            <label class="acmls-motivation-popup__option mr-3">
+                                <input type="radio"
+                                       name="acmls-e2-{{userid}}-{{sentenceid}}"
+                                       value="{{score}}"
+                                       data-score="{{score}}">
+                                <span class="ml-1">{{label}}</span>
+                            </label>
+                            {{/likert_options}}
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="acmls-motivation-popup__fieldset mb-3 border p-2">
+                        <legend class="acmls-motivation-popup__legend h6 px-2">{{str_e3_prompt}}</legend>
+                        <div class="acmls-motivation-popup__options d-flex justify-content-between flex-wrap px-2">
+                            {{#likert_options}}
+                            <label class="acmls-motivation-popup__option mr-3">
+                                <input type="radio"
+                                       name="acmls-e3-{{userid}}-{{sentenceid}}"
+                                       value="{{score}}"
+                                       data-score="{{score}}">
+                                <span class="ml-1">{{label}}</span>
+                            </label>
+                            {{/likert_options}}
+                        </div>
+                    </fieldset>
+                </div>
+
+                <label class="acmls-motivation-popup__note mt-3 w-100">
+                    <span>{{str_reflection_label}}</span>
+                    <textarea class="form-control"
+                               name="reflection_note"
+                               rows="3"
+                               maxlength="500"
+                               placeholder="{{str_reflection_placeholder}}"></textarea>
+                </label>
+
+                <p class="acmls-motivation-popup__required text-danger d-none">{{str_required}}</p>
+                <p class="acmls-motivation-popup__notice">{{str_research_notice}}</p>
+
+                <button type="submit" class="btn btn-primary acmls-motivation-popup__submit">
+                    {{str_submit}}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

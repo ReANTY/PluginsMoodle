@@ -34,28 +34,28 @@ if ($ADMIN->fulltree) {
         ]
     ));
 
-    // Heading: Thresholds
+    // Heading: Cognitive Level Thresholds (Adaptive Learning Path)
     $settings->add(new admin_setting_heading(
         'block_adaptive_learning_ai/threshold_heading',
         get_string('setting_threshold_heading', 'block_adaptive_learning_ai'),
-        ''
+        get_string('setting_threshold_heading_desc', 'block_adaptive_learning_ai')
     ));
 
-    // Remedial Threshold (Score < this is remedial)
+    // Primary Threshold (Score < this is Primary / Dasar)
     $settings->add(new admin_setting_configtext(
-        'block_adaptive_learning_ai/remedial_threshold',
-        get_string('setting_remedial_threshold', 'block_adaptive_learning_ai'),
-        get_string('setting_remedial_threshold_desc', 'block_adaptive_learning_ai'),
+        'block_adaptive_learning_ai/primary_threshold',
+        get_string('setting_primary_threshold', 'block_adaptive_learning_ai'),
+        get_string('setting_primary_threshold_desc', 'block_adaptive_learning_ai'),
         70,
         PARAM_INT
     ));
 
-    // Advanced Threshold (Score >= this is advanced)
+    // Expert Threshold (Score >= this is Expert / Mahir)
     $settings->add(new admin_setting_configtext(
-        'block_adaptive_learning_ai/advanced_threshold',
-        get_string('setting_advanced_threshold', 'block_adaptive_learning_ai'),
-        get_string('setting_advanced_threshold_desc', 'block_adaptive_learning_ai'),
-        90,
+        'block_adaptive_learning_ai/expert_threshold',
+        get_string('setting_expert_threshold', 'block_adaptive_learning_ai'),
+        get_string('setting_expert_threshold_desc', 'block_adaptive_learning_ai'),
+        85,
         PARAM_INT
     ));
 }

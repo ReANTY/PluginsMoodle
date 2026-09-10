@@ -54,6 +54,14 @@ $event->add_record_snapshot('course', $course);
 $event->add_record_snapshot('aicode', $aicode);
 $event->trigger();
 
+// Mark activity viewed in Moodle completion tracking.
+try {
+    $completion = new \completion_info($course);
+    $completion->set_module_viewed($cm);
+} catch (\Throwable $e) {
+    debugging('AICode completion view error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+}
+
 // Print the page header.
 $PAGE->set_url('/mod/aicode/view.php', ['id' => $cm->id]);
 $PAGE->set_title(format_string($aicode->name));

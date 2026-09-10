@@ -218,6 +218,18 @@ class run_code extends external_api {
             $problem
         );
 
+        // Mark module completed in Moodle activity completion.
+        try {
+            require_once($CFG->libdir . '/completionlib.php');
+            $course = $DB->get_record('course', ['id' => $cm->course]);
+            $completion = new \completion_info($course);
+            if ($completion->is_enabled($cm)) {
+                $completion->update_state($cm, COMPLETION_COMPLETE, $USER->id);
+            }
+        } catch (\Throwable $e) {
+            debugging('AICode run_code completion update failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+        }
+
         return [
             'result' => json_encode($result),
         ];

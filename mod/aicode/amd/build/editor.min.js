@@ -2155,24 +2155,40 @@ function ($, Ajax, Notification, ModalFactory, ModalEvents) {
       },
     ])[0]
       .then(function (response) {
+        var reloadPage = function() {
+          window.location.reload();
+        };
+
         if (examMode) {
           if (response && response.already_submitted) {
             config.hasSubmitted = true;
             lockEditorAfterSubmit(code);
             Notification.alert(
               "Sudah Dikumpulkan",
-              "Kamu hanya dapat mengumpulkan jawaban satu kali. Jawaban kamu sudah tercatat."
+              "Kamu hanya dapat mengumpulkan jawaban satu kali. Jawaban kamu sudah tercatat.",
+              "OK",
+              reloadPage
             );
+            setTimeout(reloadPage, 2000);
             return true;
           }
           config.hasSubmitted = true;
           lockEditorAfterSubmit(code);
           Notification.alert(
             "Berhasil Dikumpulkan",
-            "Jawaban kamu berhasil dikumpulkan. Kamu tidak dapat mengubah atau mengirim ulang jawaban."
+            "Jawaban kamu berhasil dikumpulkan! Halaman akan dimuat ulang untuk menampilkan motivasi belajarmu.",
+            "OK",
+            reloadPage
           );
+          setTimeout(reloadPage, 1500);
         } else {
-          Notification.alert("Berhasil", "Kode kamu telah dikirim ke guru untuk ditinjau.");
+          Notification.alert(
+            "Berhasil Dikumpulkan",
+            "Kode kamu telah berhasil dikirim ke guru untuk ditinjau! Halaman akan dimuat ulang.",
+            "OK",
+            reloadPage
+          );
+          setTimeout(reloadPage, 1500);
         }
         return true;
       })

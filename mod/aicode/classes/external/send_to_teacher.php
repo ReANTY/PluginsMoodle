@@ -102,6 +102,19 @@ class send_to_teacher extends external_api {
         $attempt->timecreated = time();
         $DB->insert_record('aicode_attempts', $attempt);
 
+        // Mark activity as completed in Moodle completion tracking.
+        try {
+            global $CFG;
+            require_once($CFG->libdir . '/completionlib.php');
+            $course = $PAGE->course ?? $DB->get_record('course', ['id' => $cm->course]);
+            $completion = new \completion_info($course);
+            if ($completion->is_enabled($cm)) {
+                $completion->update_state($cm, COMPLETION_COMPLETE, $USER->id);
+            }
+        } catch (\Throwable $e) {
+            debugging('AICode send_to_teacher completion update failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+        }
+
         \mod_aicode\local\activity_log::record(
             $context,
             (int) $params['problemid'],
@@ -114,6 +127,15 @@ class send_to_teacher extends external_api {
             ],
             $problem
         );
+
+        // Check if weekly section completion triggers post-section motivation.
+        if (class_exists('\local_llmmotivation\event\observer')) {
+            try {
+                \local_llmmotivation\event\observer::assignment_submitted_for_motivation($cm, (int)$USER->id);
+            } catch (\Throwable $e) {
+                debugging('AICode send_to_teacher local_llmmotivation trigger failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+        }
 
         return ['success' => true, 'already_submitted' => false];
     }

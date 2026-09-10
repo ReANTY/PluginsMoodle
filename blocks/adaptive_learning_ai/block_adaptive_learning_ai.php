@@ -91,86 +91,95 @@ class block_adaptive_learning_ai extends block_base {
         // ============================================================
         // 2. TENTUKAN LEVEL OTOMATIS DARI PENGATURAN MOODLE
         // ============================================================
-        $remedialThreshold = (int) (get_config('block_adaptive_learning_ai', 'remedial_threshold') ?: 70);
-        $advancedThreshold = (int) (get_config('block_adaptive_learning_ai', 'advanced_threshold') ?: 90);
+        $primaryThreshold = (int) (get_config('block_adaptive_learning_ai', 'primary_threshold') ?: (get_config('block_adaptive_learning_ai', 'remedial_threshold') ?: 70));
+        $expertThreshold  = (int) (get_config('block_adaptive_learning_ai', 'expert_threshold') ?: (get_config('block_adaptive_learning_ai', 'advanced_threshold') ?: 85));
 
-        $level        = 'MEDIUM';
-        $levelText    = 'Standard';
-        $statusClass  = 'standard';
+        // Evaluasi performa kognitif gabungan (Kuis + AICode) jika ada
+        $prevWeek = max(1, $weekNum - 1);
+        $sectionPerf = \block_adaptive_learning_ai\path_manager::calculate_section_performance($courseid, (int)$USER->id, $prevWeek);
+        if ($sectionPerf !== null && isset($sectionPerf['composite'])) {
+            $userScore = round($sectionPerf['composite']);
+        }
+
+        $level        = 'INTERMEDIATE';
+        $levelText    = 'Intermediate';
+        $statusClass  = 'intermediate';
         $scoreColor   = '#f59e0b';
         $levelColor   = '#fcd34d';
         $progressColor = '#f59e0b';
-        $greetingMsg  = 'Pilih topik untuk mulai belajar!';
-        $nextTarget   = $advancedThreshold;
+        $greetingMsg  = 'Pilih materi untuk mulai belajar!';
+        $nextTarget   = $expertThreshold;
         $remedialNote = '';
 
-        if ($userScore === 0) {
+        if ($userScore === 0 && $attemptCount === 0) {
             $level         = 'NODATA';
-            $levelText     = 'Belum Quiz';
+            $levelText     = 'Belum Mulai';
             $statusClass   = 'nodata';
             $scoreColor    = '#94a3b8';
             $levelColor    = '#94a3b8';
             $progressColor = '#6366f1';
-            $greetingMsg   = '📝 Kerjakan <b>Quiz Penempatan / Quiz Pertama</b> untuk memulai rekomendasi adaptif!';
-            $nextTarget    = $remedialThreshold;
-        } elseif ($userScore < $remedialThreshold) {
-            $level         = 'LOW';
-            $levelText     = 'Remedial';
-            $statusClass   = 'remedial';
-            $scoreColor    = '#ef4444';
-            $levelColor    = '#fca5a5';
-            $progressColor = '#ef4444';
-            $greetingMsg   = '🔴 Nilai ' . $userScore . '% → Disarankan mengikuti sesi <b>Remedial</b>. Target: ' . $remedialThreshold . '%+!';
-            $nextTarget    = $remedialThreshold;
-            $remedialNote  = '⚠️ Nilai Anda di bawah ' . $remedialThreshold . '%. Pelajari materi remedial atau tanyakan konsep yang sulit ke AI Tutor.';
-        } elseif ($userScore < $advancedThreshold) {
-            $level         = 'MEDIUM';
-            $levelText     = 'Standard';
-            $statusClass   = 'standard';
+            $greetingMsg   = '📝 Selesaikan <b>Materi & Latihan Minggu 1</b> untuk memetakan level kognitif Anda!';
+            $nextTarget    = $primaryThreshold;
+        } elseif ($userScore < $primaryThreshold) {
+            $level         = 'PRIMARY';
+            $levelText     = 'Primary';
+            $statusClass   = 'primary';
+            $scoreColor    = '#3b82f6';
+            $levelColor    = '#93c5fd';
+            $progressColor = '#3b82f6';
+            $greetingMsg   = '🔵 Skor ' . $userScore . '% → Jalur <b>Primary</b>: Fokus pada penguatan konsep dasar & latihan terbimbing. Target: ' . $primaryThreshold . '%+!';
+            $nextTarget    = $primaryThreshold;
+            $remedialNote  = '💡 Anda berada di level Primary. Pelajari materi fondasi dan gunakan latihan kode terbimbing untuk memperkuat pemahaman.';
+        } elseif ($userScore < $expertThreshold) {
+            $level         = 'INTERMEDIATE';
+            $levelText     = 'Intermediate';
+            $statusClass   = 'intermediate';
             $scoreColor    = '#f59e0b';
             $levelColor    = '#fcd34d';
             $progressColor = '#f59e0b';
-            $greetingMsg   = '🟡 Nilai ' . $userScore . '% → Anda berada di level <b>Standard</b>. Kejar ' . $advancedThreshold . '%+ untuk level Advanced!';
-            $nextTarget    = $advancedThreshold;
+            $greetingMsg   = '🟡 Skor ' . $userScore . '% → Jalur <b>Intermediate</b>: Pemahaman bagus! Target: ' . $expertThreshold . '%+ untuk jalur Expert!';
+            $nextTarget    = $expertThreshold;
         } else {
-            $level         = 'HIGH';
-            $levelText     = 'Advanced';
-            $statusClass   = 'advanced';
+            $level         = 'EXPERT';
+            $levelText     = 'Expert';
+            $statusClass   = 'expert';
             $scoreColor    = '#10b981';
             $levelColor    = '#6ee7b7';
             $progressColor = '#10b981';
-            $greetingMsg   = '🟢 Nilai ' . $userScore . '% → Luar biasa! Anda berada di level <b>Advanced</b>. Pertahankan!';
+            $greetingMsg   = '🟢 Skor ' . $userScore . '% → Luar biasa! Anda berada di jalur <b>Expert</b>: Siap untuk tantangan kode tingkat lanjut!';
             $nextTarget    = 100;
         }
 
         // ============================================================
-        // 3. STATISTIK KETERSEDIAAN MATERI
-        // (Aman: tidak merusak visibilitas global course_modules)
+        // 3. STATISTIK KETERSEDIAAN MATERI & FILTERING ADAPTIF
         // ============================================================
         $coursecontext = context_course::instance($courseid);
-        $isTeacher     = has_capability('moodle/course:manageactivities', $coursecontext);
+        $isTeacher     = \block_adaptive_learning_ai\path_manager::is_teacher_or_admin($courseid);
 
         $availabilityUnlocked = 0;
         $availabilityLocked   = 0;
 
         if (!$isTeacher) {
-            list($availabilityUnlocked, $availabilityLocked) =
-                self::apply_adaptive_availability($courseid, $USER->id, $level, $weekNum, $DB, $CFG);
+            $hidden_info = \block_adaptive_learning_ai\path_manager::get_hidden_cmids_for_user($courseid, (int)$USER->id);
+            $availabilityLocked = count($hidden_info);
+            // Hitung total modul di course dikurangi modul yang dihide
+            $modinfo = get_fast_modinfo($courseid);
+            $totalMods = count($modinfo->cms);
+            $availabilityUnlocked = max(0, $totalMods - $availabilityLocked);
         }
 
         // ============================================================
         // 4. REKOMENDASI BELAJAR ADAPTIF
-        // Cepat & non-blocking agar pemuatan kursus tetap instan
         // ============================================================
         $aiRecommendation = '';
-        if ($userScore === 0) {
-            $aiRecommendation = 'Selamat datang! Silakan selesaikan quiz pertama Anda untuk mengaktifkan pemetaan tingkat kemampuan dan rekomendasi AI yang dipersonalisasi.';
-        } elseif ($userScore < $remedialThreshold) {
-            $aiRecommendation = 'Skor Anda (' . $userScore . '%) berada di zona <b>Remedial</b>. Fokuskan pemahaman pada sintaks dasar dan gunakan tutor microlearning di bawah untuk latihan.';
-        } elseif ($userScore < $advancedThreshold) {
-            $aiRecommendation = 'Pemahaman Anda (' . $userScore . '%) sudah berada di level <b>Standard</b>. Pertahankan konsistensi dan eksplorasi materi lanjutan untuk meraih level Advanced.';
+        if ($userScore === 0 && $attemptCount === 0) {
+            $aiRecommendation = 'Selamat datang! Minggu 1 adalah fase pemetaan kemampuan dasar (baseline). Selesaikan materi dan kuis pertama untuk membuka jalur belajar adaptif Anda.';
+        } elseif ($userScore < $primaryThreshold) {
+            $aiRecommendation = 'Skor Anda (' . $userScore . '%) berada di jalur <b>Primary</b>. Fokuskan pemahaman pada sintaks dasar dan manfaatkan tutor kode AI di bawah untuk latihan.';
+        } elseif ($userScore < $expertThreshold) {
+            $aiRecommendation = 'Pemahaman Anda (' . $userScore . '%) berada di jalur <b>Intermediate</b>. Pertahankan konsistensi latihan untuk mencapai level Expert.';
         } else {
-            $aiRecommendation = 'Prestasi istimewa! Skor Anda (' . $userScore . '%) mencapai level <b>Advanced</b>. Anda siap mengeksplorasi studi kasus nyata dan tantangan kode yang lebih mendalam.';
+            $aiRecommendation = 'Prestasi istimewa! Skor Anda (' . $userScore . '%) mencapai level <b>Expert</b>. Anda siap mengeksplorasi studi kasus nyata dan tantangan algoritma kompleks.';
         }
 
         // ============================================================
@@ -201,11 +210,13 @@ class block_adaptive_learning_ai extends block_base {
         }
 
         // ============================================================
-        // 7. BUILD HTML
+        // 7. BUILD HTML & INJECT ADAPTIVE VIEW
         // ============================================================
         $pluginUrl = $wwwroot . '/blocks/adaptive_learning_ai';
 
-        $this->content->text = $this->render_block_html(
+        $adaptive_injection = block_adaptive_learning_ai_render_adaptive_view($courseid);
+
+        $this->content->text = $adaptive_injection . $this->render_block_html(
             $courseid, $userScore, $level, $levelText, $statusClass,
             $scoreColor, $levelColor, $progressColor, $greetingMsg,
             $weekNum, $quizName, $quizTimeStr, $attemptCount,
@@ -506,28 +517,11 @@ class block_adaptive_learning_ai extends block_base {
     }
 
     // ================================================================
-    // DETECT LEVEL TAG — deteksi kata Low/Medium/High/Remedial dalam nama modul
-    // Return: 'LOW' | 'MEDIUM' | 'HIGH' | 'REMEDIAL' | null (modul umum)
+    // DETECT LEVEL TAG — deteksi kata Primary/Intermediate/Expert dalam nama modul
+    // Return: 'PRIMARY' | 'INTERMEDIATE' | 'EXPERT' | null (modul umum)
     // ================================================================
     private static function detect_level_tag($title) {
-        if (empty($title)) return null;
-
-        $t = strtolower($title);
-
-        // Cek HIGH dulu (sebelum cek "medium" agar tidak overlap)
-        if (preg_match('/\bhigh\b/', $t))     return 'HIGH';
-        if (preg_match('/\bmedium\b/', $t))   return 'MEDIUM';
-        if (preg_match('/\blow\b/', $t))      return 'LOW';
-
-        // Remedial / Remidial (typo umum)
-        if (strpos($t, 'remedial') !== false) return 'REMEDIAL';
-        if (strpos($t, 'remidial') !== false) return 'REMEDIAL';
-
-        // Alias tambahan
-        if (strpos($t, 'advanced') !== false) return 'HIGH';
-        if (strpos($t, 'standard') !== false) return 'MEDIUM';
-
-        return null; // modul umum, tidak berlevel
+        return \block_adaptive_learning_ai\path_manager::detect_module_level($title);
     }
 
     // ================================================================
@@ -671,17 +665,23 @@ class block_adaptive_learning_ai extends block_base {
         global $CFG;
 
         $levelIcon = [
-            'LOW'    => '🔴',
-            'MEDIUM' => '🟡',
-            'HIGH'   => '🟢',
-            'nodata' => '⚪',
+            'PRIMARY'      => '🌱',
+            'INTERMEDIATE' => '⚡',
+            'EXPERT'       => '👑',
+            'LOW'          => '🌱',
+            'MEDIUM'       => '⚡',
+            'HIGH'         => '👑',
+            'nodata'       => '⚪',
         ][$level] ?? '⚪';
 
         $levelBadgeColor = [
-            'remedial' => 'background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.4)',
-            'standard' => 'background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.4)',
-            'advanced' => 'background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.4)',
-            'nodata'   => 'background:rgba(148,163,184,0.15);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)',
+            'primary'      => 'background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.4)',
+            'intermediate' => 'background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.4)',
+            'expert'       => 'background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.4)',
+            'remedial'     => 'background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.4)',
+            'standard'     => 'background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.4)',
+            'advanced'     => 'background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.4)',
+            'nodata'       => 'background:rgba(148,163,184,0.15);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)',
         ][$statusClass] ?? '';
 
         $aiHtml = '';
@@ -791,10 +791,13 @@ class block_adaptive_learning_ai extends block_base {
 .alai-metric:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .alai-metric-val{font-size:1.35rem;font-weight:900;line-height:1;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .alai-metric-lbl{font-size:.55rem;color:rgba(255,255,255,.48);text-transform:uppercase;letter-spacing:.6px;font-weight:600;white-space:nowrap}
-.alai-metric-remedial .alai-metric-val{color:#f87171}
-.alai-metric-standard .alai-metric-val{color:#fbbf24}
-.alai-metric-advanced .alai-metric-val{color:#34d399}
-.alai-metric-nodata   .alai-metric-val{color:#94a3b8}
+.alai-metric-primary      .alai-metric-val{color:#60a5fa}
+.alai-metric-intermediate .alai-metric-val{color:#fbbf24}
+.alai-metric-expert       .alai-metric-val{color:#34d399}
+.alai-metric-remedial     .alai-metric-val{color:#60a5fa}
+.alai-metric-standard     .alai-metric-val{color:#fbbf24}
+.alai-metric-advanced     .alai-metric-val{color:#34d399}
+.alai-metric-nodata       .alai-metric-val{color:#94a3b8}
 
 /* PROGRESS BAR */
 .alai-progress-wrap{margin-bottom:6px}
@@ -807,10 +810,13 @@ class block_adaptive_learning_ai extends block_base {
     height:100%;border-radius:4px;
     transition:width 1.2s cubic-bezier(.4,0,.2,1);
 }
-.alai-progress-remedial .alai-progress-bar{background:linear-gradient(90deg,#ef4444,#f87171)}
-.alai-progress-standard .alai-progress-bar{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
-.alai-progress-advanced .alai-progress-bar{background:linear-gradient(90deg,#10b981,#34d399)}
-.alai-progress-nodata   .alai-progress-bar{background:linear-gradient(90deg,#6366f1,#818cf8)}
+.alai-progress-primary      .alai-progress-bar{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+.alai-progress-intermediate .alai-progress-bar{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.alai-progress-expert       .alai-progress-bar{background:linear-gradient(90deg,#10b981,#34d399)}
+.alai-progress-remedial     .alai-progress-bar{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+.alai-progress-standard     .alai-progress-bar{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.alai-progress-advanced     .alai-progress-bar{background:linear-gradient(90deg,#10b981,#34d399)}
+.alai-progress-nodata       .alai-progress-bar{background:linear-gradient(90deg,#6366f1,#818cf8)}
 
 /* LEVEL BADGE & GREETING */
 .alai-greeting{
