@@ -58,7 +58,56 @@ class delivery_system {
     }
 
     /**
-     * Get the current active section for the student.
+     * Determine the section number that the user is currently viewing on the page.
+     * Returns 0 if not detectable or on the overall course page with no section selected.
+     */
+    public function get_viewing_section(int $courseid): int {
+        global $DB, $PAGE;
+
+        try {
+            // 1. If currently inside a course module (activity / resource).
+            if (!empty($PAGE->cm) && !empty($PAGE->cm->section)) {
+                $sec = $DB->get_record('course_sections', ['id' => (int)$PAGE->cm->section], 'section');
+                if ($sec && (int)$sec->section > 0) {
+                    return (int)$sec->section;
+                }
+            }
+
+            // 2. If 'section' parameter is present in URL or request.
+            $secparam = optional_param('section', null, PARAM_INT);
+            if ($secparam === null && !empty($PAGE->url)) {
+                $urlparam = $PAGE->url->get_param('section');
+                if ($urlparam !== null && is_numeric($urlparam)) {
+                    $secparam = (int)$urlparam;
+                }
+            }
+            if ($secparam !== null && $secparam > 0) {
+                return $secparam;
+            }
+
+            // 3. If 'sectionid' parameter is present.
+            $secidparam = optional_param('sectionid', null, PARAM_INT);
+            if ($secidparam === null && !empty($PAGE->url)) {
+                $urlparam = $PAGE->url->get_param('sectionid');
+                if ($urlparam !== null && is_numeric($urlparam)) {
+                    $secidparam = (int)$urlparam;
+                }
+            }
+            if ($secidparam !== null && $secidparam > 0) {
+                $sec = $DB->get_record('course_sections', ['id' => (int)$secidparam], 'section');
+                if ($sec && (int)$sec->section > 0) {
+                    return (int)$sec->section;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore and return 0.
+        }
+
+        return 0;
+    }
+
+    /**
+     * Get the current active section for the student based on unlocked and completed progress.
      */
     public function get_current_section_for_student(int $userid, int $courseid): int {
         global $DB;
@@ -69,14 +118,27 @@ class delivery_system {
             $modinfo = get_fast_modinfo($course, $userid);
             $sections = $modinfo->get_section_info_all();
 
-            $highest_unlocked = 1;
+            $active_section = 1;
             foreach ($sections as $sec) {
-                if ((int)$sec->section <= 0) continue;
-                if ($sec->uservisible && $sec->available) {
-                    $highest_unlocked = (int)$sec->section;
+                $secnum = (int)$sec->section;
+                if ($secnum <= 0) continue;
+                if (!$sec->uservisible || !$sec->available) break;
+
+                // To advance beyond section 1, previous section must have post-evaluation submitted.
+                if ($secnum > 1) {
+                    $prev_sec = $secnum - 1;
+                    $has_prev_post = $DB->record_exists('acmls_motivation_feedback', [
+                        'userid' => $userid,
+                        'courseid' => $courseid,
+                        'category' => 'post_section_' . $prev_sec,
+                    ]);
+                    if (!$has_prev_post) {
+                        break;
+                    }
                 }
+                $active_section = $secnum;
             }
-            return $highest_unlocked;
+            return $active_section;
         } catch (\Throwable $e) {
             return 1;
         }
@@ -92,13 +154,32 @@ class delivery_system {
             return ['show' => false];
         }
 
+        $viewing_section = $this->get_viewing_section($courseid);
+
         // 1. Post-Emotion Check-In: Priority when quiz/assignment completed / pending motivation exists.
+        $mot_section = 0;
         if (!empty($pending_quiz_mot)) {
             $mot_section = isset($pending_quiz_mot['section']) ? (int)$pending_quiz_mot['section'] : 0;
-            if ($mot_section <= 0) {
-                $mot_section = $this->get_current_section_for_student($userid, $courseid);
-            }
+        }
 
+        if ($mot_section <= 0) {
+            $curr_sec = $this->get_current_section_for_student($userid, $courseid);
+            if (class_exists('\local_llmmotivation\event\observer')) {
+                $status = \local_llmmotivation\event\observer::check_section_completion_status($userid, $courseid, $curr_sec);
+                if (!empty($status['completed'])) {
+                    $has_post = $DB->record_exists('acmls_motivation_feedback', [
+                        'userid' => $userid,
+                        'courseid' => $courseid,
+                        'category' => 'post_section_' . $curr_sec,
+                    ]);
+                    if (!$has_post) {
+                        $mot_section = $curr_sec;
+                    }
+                }
+            }
+        }
+
+        if ($mot_section > 0) {
             $post_category = 'post_section_' . $mot_section;
             $has_post = $DB->record_exists('acmls_motivation_feedback', [
                 'userid' => $userid,
@@ -115,15 +196,43 @@ class delivery_system {
                     'source' => 'section_post',
                     'title' => "Evaluasi Emosi Akhir — Minggu {$mot_section}",
                     'subtitle' => "Selamat telah menuntaskan materi dan penugasan Minggu {$mot_section}! Sampaikan bagaimana perasaan dan refleksimu setelah belajar.",
-                    'submit' => 'Kirim & Lihat Motivasi Belajar',
+                    'submit' => "Kirim Refleksi Minggu {$mot_section}",
                 ];
             }
         }
 
         // 2. Pre-Emotion Check-In: Awal section saat siswa membuka section baru.
-        $current_section = $this->get_current_section_for_student($userid, $courseid);
-        $pre_category = 'checkin_section_' . $current_section;
+        // Rule:
+        // - Section 1 checkin shows at course start (course view or section 1 activity).
+        // - Section X (> 1) checkin ONLY shows if:
+        //   a. Prior section (X - 1) is completely finished (post-evaluation submitted).
+        //   b. Student is viewing section X (activity in section X or on section X page).
+        //   c. Student has not yet submitted checkin_section_X.
+        $target_section = 1;
+        if ($viewing_section > 0) {
+            $target_section = $viewing_section;
+        } else {
+            $target_section = $this->get_current_section_for_student($userid, $courseid);
+        }
 
+        // If target section is > 1: verify that previous section post-evaluation is submitted!
+        if ($target_section > 1) {
+            $prev_post = $DB->record_exists('acmls_motivation_feedback', [
+                'userid' => $userid,
+                'courseid' => $courseid,
+                'category' => 'post_section_' . ($target_section - 1),
+            ]);
+            if (!$prev_post) {
+                return ['show' => false];
+            }
+
+            // If viewing an activity in a previous section, NEVER show check-in for a subsequent section!
+            if ($viewing_section > 0 && $viewing_section !== $target_section) {
+                return ['show' => false];
+            }
+        }
+
+        $pre_category = 'checkin_section_' . $target_section;
         $has_pre = $DB->record_exists('acmls_motivation_feedback', [
             'userid' => $userid,
             'courseid' => $courseid,
@@ -133,13 +242,13 @@ class delivery_system {
         if (!$has_pre) {
             return [
                 'show' => true,
-                'section' => $current_section,
+                'section' => $target_section,
                 'stage' => 'pre',
                 'category' => $pre_category,
                 'source' => 'section_pre',
-                'title' => "Check-in Kesiapan Emosi Awal — Minggu {$current_section}",
-                'subtitle' => "Sebelum memulai pembelajaran materi Minggu {$current_section}, sampaikan kesiapan emosimu hari ini.",
-                'submit' => "Mulai Belajar Minggu {$current_section}",
+                'title' => "Check-in Kesiapan Emosi Awal — Minggu {$target_section}",
+                'subtitle' => "Sebelum memulai pembelajaran materi Minggu {$target_section}, sampaikan kesiapan emosimu hari ini.",
+                'submit' => "Mulai Belajar Minggu {$target_section}",
             ];
         }
 
@@ -167,6 +276,41 @@ class delivery_system {
                 1
             );
 
+            // Auto-recovery: If no pending motivation exists, check if any section was completed
+            // but motivation was never generated (e.g. earlier submission with unhandled exception).
+            if (empty($records) && class_exists('\local_llmmotivation\event\observer')) {
+                $max_sections = $DB->count_records('course_sections', ['course' => $courseid]);
+                for ($s = 1; $s <= $max_sections; $s++) {
+                    $has_delivered = $DB->record_exists_select(
+                        self::TABLE_LEARNER_RECORD,
+                        "userid = :userid AND courseid = :courseid AND record_type = 'delivered_quiz_motivation' AND data_payload LIKE :sec",
+                        ['userid' => $userid, 'courseid' => $courseid, 'sec' => '%"section":' . $s . '%']
+                    );
+                    $has_post = $DB->record_exists('acmls_motivation_feedback', [
+                        'userid' => $userid,
+                        'courseid' => $courseid,
+                        'category' => 'post_section_' . $s,
+                    ]);
+
+                    if (!$has_delivered && !$has_post) {
+                        $status = \local_llmmotivation\event\observer::check_section_completion_status($userid, $courseid, $s);
+                        if (!empty($status['completed'])) {
+                            \local_llmmotivation\event\observer::trigger_section_completion_motivation($userid, $courseid, $s, $status);
+                            $records = $DB->get_records_select(
+                                self::TABLE_LEARNER_RECORD,
+                                "userid = :userid AND courseid = :courseid AND record_type = 'pending_quiz_motivation'",
+                                ['userid' => $userid, 'courseid' => $courseid],
+                                'id DESC',
+                                '*',
+                                0,
+                                1
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (empty($records)) {
                 return null;
             }
@@ -192,7 +336,7 @@ class delivery_system {
     /**
      * Render the emotional readiness check-in modal.
      */
-    public function display_emotion_checkin(int $userid, int $courseid, array $state = []): string {
+    public function display_emotion_checkin(int $userid, int $courseid, array $state = [], bool $wait_for_motivation = false): string {
         global $OUTPUT;
 
         if (empty($state)) {
@@ -216,6 +360,7 @@ class delivery_system {
                 'stage' => $stage,
                 'category' => $category,
                 'source' => $source,
+                'wait_for_motivation' => $wait_for_motivation,
                 'likert_options' => $this->get_likert_options(),
                 'str_popup_title' => $title,
                 'str_popup_subtitle' => $subtitle,
@@ -234,7 +379,7 @@ class delivery_system {
     /**
      * Render the post-quiz/assignment motivation modal.
      */
-    public function display_quiz_motivation(int $userid, int $courseid, array $mot, bool $wait_for_emotion = false): string {
+    public function display_quiz_motivation(int $userid, int $courseid, array $mot, bool $has_post_emotion = false): string {
         global $OUTPUT;
 
         $quizgrade = $mot['quizgrade'] ?? null;
@@ -245,6 +390,9 @@ class delivery_system {
 
         $category = $mot['category'] ?? '';
         $suggestion = $mot['suggestion'] ?? '';
+        $continue_btn_text = $has_post_emotion
+            ? get_string('quiz_motivation_continue_to_reflection', 'local_llmmotivation')
+            : get_string('quiz_motivation_continue', 'local_llmmotivation');
 
         return $OUTPUT->render_from_template(
             'local_llmmotivation/quiz_motivation',
@@ -261,11 +409,11 @@ class delivery_system {
                 'is_gemini' => ($mot['source'] ?? '') === 'gemini',
                 'has_quizgrade' => $has_quizgrade,
                 'quizgrade_formatted' => $quizgrade_formatted,
-                'wait_for_emotion' => $wait_for_emotion,
+                'has_post_emotion' => $has_post_emotion,
                 'str_title' => get_string('quiz_motivation_title', 'local_llmmotivation'),
                 'str_subtitle' => get_string('quiz_motivation_subtitle', 'local_llmmotivation'),
                 'str_suggestion_title' => get_string('quiz_motivation_suggestion_title', 'local_llmmotivation'),
-                'str_continue' => get_string('quiz_motivation_continue', 'local_llmmotivation'),
+                'str_continue' => $continue_btn_text,
             ]
         );
     }

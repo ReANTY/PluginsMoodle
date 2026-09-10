@@ -341,6 +341,8 @@ $string['emotion_checkin_submit'] = 'Mulai Belajar';
 $string['quiz_motivation_title'] = 'Umpan Balik Motivasi Belajar';
 $string['quiz_motivation_subtitle'] = 'Apresiasi & Evaluasi Akhir Minggu';
 $string['quiz_motivation_continue'] = 'Lanjutkan Belajar';
+$string['quiz_motivation_continue_to_reflection'] = 'Lanjut ke Refleksi Emosi Akhir';
+
 $string['quiz_motivation_score'] = 'Nilai Kuis Kamu: {$a}%';
 $string['quiz_motivation_suggestion_title'] = 'Saran Perbaikan & Langkah Selanjutnya';
 $string['motivation_suggestion_title'] = 'Saran Perbaikan';

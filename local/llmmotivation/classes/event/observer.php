@@ -295,14 +295,17 @@ class observer {
             $total_readings_count = $status['total_readings_count'] ?? 0;
 
             // Retrieve pre-emotion checkin data if available
-            $pre_emotion = $DB->get_record_select(
+            $pre_records = $DB->get_records_select(
                 'acmls_motivation_feedback',
                 'userid = :userid AND courseid = :courseid AND category = :cat',
                 ['userid' => $userid, 'courseid' => $courseid, 'cat' => 'checkin_section_' . $section_num],
                 'id DESC',
                 '*',
-                IGNORE_MULTIPLE
+                0,
+                1
             );
+            $pre_emotion = !empty($pre_records) ? reset($pre_records) : null;
+
             $emotion_summary = '';
             if ($pre_emotion) {
                 $emotion_summary = "Kesiapan awal: Motivasi {$pre_emotion->e1}/5, Percaya diri {$pre_emotion->e2}/5, Kesiapan praktik {$pre_emotion->e3}/5.";

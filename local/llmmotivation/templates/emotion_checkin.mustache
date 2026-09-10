@@ -3,7 +3,7 @@
 
     Emotional readiness check-in popup before learning starts or post-section evaluation.
 }}
-<div class="acmls-motivation-popup acmls-emotion-popup is-visible"
+<div class="acmls-motivation-popup acmls-emotion-popup {{^wait_for_motivation}}is-visible{{/wait_for_motivation}}"
      data-userid="{{userid}}"
      data-courseid="{{courseid}}"
      data-section="{{section_num}}"

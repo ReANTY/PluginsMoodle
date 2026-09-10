@@ -56,15 +56,17 @@ function local_llmmotivation_render_popups(): string {
         $rendered = true;
         $html = '';
 
-        $wait_for_emotion = ($has_emotion && ($emotion_state['stage'] ?? '') === 'post');
-
-        if ($has_emotion) {
-            $html .= $delivery->display_emotion_checkin((int)$USER->id, $courseid, $emotion_state);
-        }
+        $has_post_emotion = ($has_emotion && ($emotion_state['stage'] ?? '') === 'post');
+        $wait_for_motivation = ($has_quiz_mot && $has_post_emotion);
 
         if ($has_quiz_mot) {
-            $html .= $delivery->display_quiz_motivation((int)$USER->id, $courseid, $pending_quiz_mot, $wait_for_emotion);
+            $html .= $delivery->display_quiz_motivation((int)$USER->id, $courseid, $pending_quiz_mot, $has_post_emotion);
         }
+
+        if ($has_emotion) {
+            $html .= $delivery->display_emotion_checkin((int)$USER->id, $courseid, $emotion_state, $wait_for_motivation);
+        }
+
 
         // Initialize AMD JavaScript for popup actions
         $PAGE->requires->js_call_amd('local_llmmotivation/main', 'init', [

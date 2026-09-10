@@ -73,12 +73,6 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
                     $popup.removeClass('is-visible').addClass('is-submitted');
                     window.setTimeout(function() {
                         $popup.remove();
-                        if (stage === 'post') {
-                            var $quizPopup = $('.acmls-quiz-motivation-popup');
-                            if ($quizPopup.length) {
-                                $quizPopup.addClass('is-visible');
-                            }
-                        }
                     }, 250);
                 }).fail(function(err) {
                     $submit.prop('disabled', false);
@@ -86,7 +80,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
                 });
             });
 
-            // Handle dismiss post-quiz/assignment motivation.
+            // Handle dismiss post-quiz/assignment motivation and transition to final emotion check-in.
             $(document).on('click', '.acmls-quiz-motivation__dismiss', function(e) {
                 e.preventDefault();
                 var $popup = $(this).closest('.acmls-quiz-motivation-popup');
@@ -99,7 +93,25 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
                 $popup.removeClass('is-visible').addClass('is-submitted');
                 window.setTimeout(function() {
                     $popup.remove();
+                    // Transition to the final emotion check-in form if present.
+                    var $postEmotionPopup = $('.acmls-emotion-popup[data-stage="post"]');
+                    if ($postEmotionPopup.length) {
+                        $postEmotionPopup.addClass('is-visible');
+                    }
                 }, 250);
+            });
+
+            // Handle clicking next section link on course view page to trigger its pre-checkin if ready
+            $(document).on('click', '[data-for="section_title"], .courseindex-link, .section-item a, .sectionname a', function() {
+                var href = $(this).attr('href') || '';
+                var match = href.match(/section=(\d+)|#section-(\d+)/);
+                if (match) {
+                    var secNum = parseInt(match[1] || match[2], 10);
+                    var $prePopup = $('.acmls-emotion-popup[data-stage="pre"][data-section="' + secNum + '"]');
+                    if ($prePopup.length && !$prePopup.hasClass('is-visible') && !$prePopup.hasClass('is-submitted')) {
+                        $prePopup.addClass('is-visible');
+                    }
+                }
             });
         }
     };

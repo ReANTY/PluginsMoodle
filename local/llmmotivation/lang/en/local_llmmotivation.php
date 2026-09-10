@@ -341,6 +341,8 @@ $string['emotion_checkin_submit'] = 'Mulai Belajar';
 $string['quiz_motivation_title'] = 'Learning Motivation Feedback';
 $string['quiz_motivation_subtitle'] = 'Weekly Activity & Quiz Evaluation';
 $string['quiz_motivation_continue'] = 'Continue Learning';
+$string['quiz_motivation_continue_to_reflection'] = 'Continue to Final Emotion Reflection';
+
 $string['quiz_motivation_score'] = 'Your Quiz Score: {$a}%';
 $string['quiz_motivation_suggestion_title'] = 'Adaptive Improvement Advice';
 $string['motivation_suggestion_title'] = 'Saran Perbaikan';
