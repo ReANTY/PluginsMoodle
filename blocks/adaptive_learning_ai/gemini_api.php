@@ -148,7 +148,303 @@ function alai_call_gemini($prompt, $maxTokens = 400, $temperature = 0.7) {
 }
 
 // -------------------------------------------------------------
-// 1. LEARNING RECOMMENDATION — berdasarkan nilai & level
+// 1. DYNAMIC COURSE MATERIAL RECOMMENDATIONS (Gemini AI + Course Data)
+// -------------------------------------------------------------
+/**
+ * Dapatkan rekomendasi materi kursus berbasis Gemini AI (OpenRouter).
+ * Rekomendasi materi WAJIB diambil dari materi yang ada di dalam course.
+ *
+ * @param int $courseid
+ * @param int $userid
+ * @param int $score
+ * @param string $level
+ * @param string $quizName
+ * @param int $weekNum
+ * @param bool $forceRefresh
+ * @return array
+ */
+function alai_get_course_material_recommendations($courseid, $userid, $score, $level, $quizName = '', $weekNum = 1, $forceRefresh = false) {
+    global $DB, $CFG;
+
+    // 1. Cek Cache User Preference
+    if (!$forceRefresh && $userid > 0) {
+        $cachedRaw = get_user_preferences('alai_rec_' . $courseid, '', $userid);
+        if (!empty($cachedRaw)) {
+            $cached = json_decode($cachedRaw, true);
+            if (!empty($cached) && isset($cached['score'], $cached['data']) 
+                && $cached['score'] == $score 
+                && ($cached['level'] ?? '') == $level
+                && (time() - ($cached['time'] ?? 0)) < 7200) {
+                return $cached['data'];
+            }
+        }
+    }
+
+    // 2. Kumpulkan Modul Nyata dari Kursus
+    $course = $DB->get_record('course', ['id' => $courseid]);
+    if (!$course) {
+        return [
+            'advice' => 'Kursus tidak ditemukan.',
+            'recommendations' => [],
+            'source' => 'fallback'
+        ];
+    }
+
+    require_once($CFG->dirroot . '/course/lib.php');
+    $modinfo = get_fast_modinfo($course, $userid);
+    $sections = $modinfo->get_section_info_all();
+
+    $allCandidatesByCmid = [];
+    $scopedCandidates    = [];
+    $targetWeeks         = [max(1, $weekNum - 1), $weekNum, $weekNum + 1];
+
+    foreach ($sections as $secnum => $section) {
+        if ($secnum === 0 || empty($modinfo->sections[$secnum])) {
+            continue;
+        }
+        $secName = $section->name ? trim($section->name) : ('Minggu ' . $secnum);
+
+        foreach ($modinfo->sections[$secnum] as $cmid) {
+            $cm = $modinfo->cms[$cmid];
+            if (!$cm->uservisible) {
+                continue;
+            }
+            if (stripos($cm->name, 'khusus guru') !== false || stripos($cm->name, 'kunci jawaban') !== false) {
+                continue;
+            }
+
+            $url = $cm->url ? $cm->url->out(false) : ($CFG->wwwroot . '/mod/' . $cm->modname . '/view.php?id=' . $cmid);
+            $item = [
+                'cmid'    => (int) $cmid,
+                'title'   => $cm->name,
+                'type'    => $cm->modname,
+                'secnum'  => (int) $secnum,
+                'section' => $secName,
+                'url'     => $url,
+            ];
+
+            $allCandidatesByCmid[$cmid] = $item;
+
+            if (in_array($secnum, $targetWeeks)) {
+                $scopedCandidates[] = $item;
+            }
+        }
+    }
+
+    // Jika target weeks sedikit, gunakan semua materi kursus yang tersedia
+    $candidates = (count($scopedCandidates) >= 3) ? $scopedCandidates : array_values($allCandidatesByCmid);
+
+    if (empty($candidates)) {
+        return [
+            'advice' => 'Belum ada materi pembelajaran yang tersedia pada kursus ini.',
+            'recommendations' => [],
+            'source' => 'empty'
+        ];
+    }
+
+    // 3. Siapkan Prompt ke OpenRouter Gemini
+    $candidatesForPrompt = array_map(function($c) {
+        return [
+            'cmid'    => $c['cmid'],
+            'title'   => $c['title'],
+            'type'    => $c['type'],
+            'section' => $c['section']
+        ];
+    }, array_slice($candidates, 0, 24));
+
+    $candidatesJson = json_encode($candidatesForPrompt, JSON_UNESCAPED_UNICODE);
+    $quizLabel = !empty($quizName) ? "pada {$quizName}" : "pada kuis terbaru";
+
+    $prompt = "Kamu adalah AI Tutor Pembelajaran Adaptif di LMS Moodle.
+Profil Siswa:
+- Skor Kuis: {$score}% ({$quizLabel})
+- Level Kognitif: {$level} (Threshold: Primary < 70%, Expert >= 85%)
+- Posisi Pembelajaran: Minggu {$weekNum}
+
+Berikut adalah DAFTAR MATERI RESMI YANG ADA DI DALAM KURSUS INI:
+{$candidatesJson}
+
+INSTRUKSI WAJIB:
+1. Tulis 'advice': 2-3 kalimat motivasi & analisis belajar dalam bahasa Indonesia yang suportif, ramah, dan sesuai skor siswa.
+2. PILIH TEPAT 2 atau 3 materi DARI DAFTAR DI ATAS yang paling tepat untuk siswa:
+   - Jika skor rendah / level PRIMARY/LOW (< 70%): Pilih materi/kuis konsep dasar untuk 'Perbaikan Nilai' (Remedial).
+   - Jika level INTERMEDIATE/MEDIUM (70-84%): Pilih materi pemahaman dan praktik untuk 'Penguatan Konsep'.
+   - Jika skor tinggi / level EXPERT/HIGH (>= 85%): Pilih materi lanjutan, praktik kode, atau kuis minggu berikutnya untuk 'Materi Lanjutan' (Pengayaan).
+   - PERINGATAN KERAS: DILARANG KERAS mengambil atau mengarang materi dari luar daftar di atas! Nilai 'cmid' HARUS persis ada di daftar.
+3. Untuk setiap materi yang dipilih, tentukan:
+   - 'cmid': nomor cmid sesuai daftar
+   - 'purpose': salah satu dari ['Perbaikan Nilai', 'Penguatan Konsep', 'Materi Lanjutan']
+   - 'reason': 1 kalimat singkat alasan materi ini disarankan
+
+Format output: HANYA keluarkan format JSON murni tanpa pembungkus markdown (tanpa ```json atau ```):
+{
+  \"advice\": \"Pesan motivasi dan arahan belajar di sini...\",
+  \"recommendations\": [
+    {
+      \"cmid\": 1234,
+      \"purpose\": \"Perbaikan Nilai\",
+      \"reason\": \"Alasan singkat rekomendasi.\"
+    }
+  ]
+}";
+
+    $aiRes = alai_call_gemini($prompt, 550, 0.4);
+
+    if ($aiRes['success'] && !empty($aiRes['text'])) {
+        $clean = trim($aiRes['text']);
+        $clean = preg_replace('/^```(?:json)?\s*([\s\S]*?)\s*```$/i', '$1', $clean);
+        if (preg_match('/\{[\s\S]*\}/', $clean, $matches)) {
+            $clean = $matches[0];
+        }
+
+        $parsed = json_decode($clean, true);
+        if (!empty($parsed) && !empty($parsed['recommendations']) && is_array($parsed['recommendations'])) {
+            $finalRecs = [];
+            foreach ($parsed['recommendations'] as $rec) {
+                $targetCmid = (int) ($rec['cmid'] ?? 0);
+                if (isset($allCandidatesByCmid[$targetCmid])) {
+                    $cand = $allCandidatesByCmid[$targetCmid];
+                    $finalRecs[] = [
+                        'cmid'    => $cand['cmid'],
+                        'title'   => $cand['title'],
+                        'type'    => $cand['type'],
+                        'section' => $cand['section'],
+                        'url'     => $cand['url'],
+                        'purpose' => $rec['purpose'] ?? 'Rekomendasi Materi',
+                        'reason'  => $rec['reason'] ?? '',
+                    ];
+                }
+            }
+
+            if (!empty($finalRecs)) {
+                $resultData = [
+                    'advice'          => $parsed['advice'] ?? '',
+                    'recommendations' => $finalRecs,
+                    'source'          => 'gemini_ai'
+                ];
+
+                // Simpan ke User Preference Cache
+                if ($userid > 0) {
+                    $cachePayload = json_encode([
+                        'score' => $score,
+                        'level' => $level,
+                        'time'  => time(),
+                        'data'  => $resultData
+                    ], JSON_UNESCAPED_UNICODE);
+                    if (strlen($cachePayload) <= 1330) {
+                        set_user_preference('alai_rec_' . $courseid, $cachePayload, $userid);
+                    }
+                }
+
+                return $resultData;
+            }
+        }
+    }
+
+    // 4. Fallback jika Gemini offline atau respon tidak valid
+    return alai_build_fallback_recommendations($courseid, $allCandidatesByCmid, $score, $level, $weekNum, $userid);
+}
+
+/**
+ * Fallback cerdas rekomendasi materi dari dalam course jika AI tidak merespon
+ */
+function alai_build_fallback_recommendations($courseid, $allCandidatesByCmid, $score, $level, $weekNum, $userid = 0) {
+    $recs = [];
+    $isLow  = ($score < 70 || in_array($level, ['PRIMARY', 'LOW', 'NODATA']));
+    $isHigh = ($score >= 85 || in_array($level, ['EXPERT', 'HIGH']));
+
+    $advice = '';
+    if ($isLow) {
+        $advice = "Skor Anda membutuhkan penguatan konsep dasar. Kami menyarankan untuk mempelajari kembali materi fondasi dan latihan berikut untuk perbaikan nilai Anda.";
+        $purpose = 'Perbaikan Nilai';
+    } elseif ($isHigh) {
+        $advice = "Prestasi luar biasa! Pemahaman Anda sangat tinggi. Tantang diri Anda dengan materi pengayaan dan latihan lanjutan berikut.";
+        $purpose = 'Materi Lanjutan';
+    } else {
+        $advice = "Pemahaman Anda berada di jalur yang baik. Kuatkan konsep dengan materi praktik berikut untuk meningkatkan nilai ke level Expert.";
+        $purpose = 'Penguatan Konsep';
+    }
+
+    $sortedCandidates = array_values($allCandidatesByCmid);
+    if ($isHigh) {
+        // Ambil modul minggu saat ini atau minggu berikutnya (terutama aicode/quiz/assignment)
+        foreach ($sortedCandidates as $c) {
+            if ($c['secnum'] >= $weekNum && in_array($c['type'], ['aicode', 'quiz', 'assign', 'page'])) {
+                $recs[] = [
+                    'cmid'    => $c['cmid'],
+                    'title'   => $c['title'],
+                    'type'    => $c['type'],
+                    'section' => $c['section'],
+                    'url'     => $c['url'],
+                    'purpose' => $purpose,
+                    'reason'  => 'Materi lanjutan untuk memperdalam pemahaman praktis Anda.'
+                ];
+                if (count($recs) >= 3) break;
+            }
+        }
+    } else {
+        // Ambil materi penguatan dasar
+        foreach ($sortedCandidates as $c) {
+            if ($c['secnum'] <= max(1, $weekNum)) {
+                $recs[] = [
+                    'cmid'    => $c['cmid'],
+                    'title'   => $c['title'],
+                    'type'    => $c['type'],
+                    'section' => $c['section'],
+                    'url'     => $c['url'],
+                    'purpose' => $purpose,
+                    'reason'  => $isLow ? 'Pelajari materi ini untuk perbaikan nilai dan penguasaan fondasi.' : 'Latihan ini akan memantapkan konsep Anda.'
+                ];
+                if (count($recs) >= 3) break;
+            }
+        }
+    }
+
+    // Fallback jika belum cukup
+    if (empty($recs) && !empty($sortedCandidates)) {
+        foreach (array_slice($sortedCandidates, 0, 2) as $c) {
+            $recs[] = [
+                'cmid'    => $c['cmid'],
+                'title'   => $c['title'],
+                'type'    => $c['type'],
+                'section' => $c['section'],
+                'url'     => $c['url'],
+                'purpose' => $purpose,
+                'reason'  => 'Materi rekomendasi untuk jalur belajar Anda.'
+            ];
+        }
+    }
+
+    $resultData = [
+        'advice'          => $advice,
+        'recommendations' => $recs,
+        'source'          => 'fallback'
+    ];
+
+    return $resultData;
+}
+
+/**
+ * Render Icon Modul Moodle dengan styling modern yang rapi
+ */
+function alai_render_module_icon($modname) {
+    switch ($modname) {
+        case 'quiz':
+            return '<span class="alai-type-icon alai-icon-quiz" title="Kuis"><i class="fas fa-question-circle"></i></span>';
+        case 'aicode':
+            return '<span class="alai-type-icon alai-icon-code" title="Praktik Kode"><i class="fas fa-laptop-code"></i></span>';
+        case 'assign':
+            return '<span class="alai-type-icon alai-icon-assign" title="Tugas Praktik"><i class="fas fa-file-signature"></i></span>';
+        case 'forum':
+            return '<span class="alai-type-icon alai-icon-forum" title="Forum Diskusi"><i class="fas fa-comments"></i></span>';
+        case 'page':
+        default:
+            return '<span class="alai-type-icon alai-icon-page" title="Materi Pembelajaran"><i class="fas fa-book-open"></i></span>';
+    }
+}
+
+// -------------------------------------------------------------
+// 2. LEARNING RECOMMENDATION — berdasarkan nilai & level
 // -------------------------------------------------------------
 function alai_get_recommendation($score, $level, $quizName = '', $topic = '') {
     $quizInfo = $quizName ? "Quiz '$quizName'" : 'Quiz';

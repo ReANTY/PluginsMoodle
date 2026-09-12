@@ -2,6 +2,20 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
+    $huburl = (new moodle_url('/admin/settings.php', ['section' => 'ai_central_settings']))->out();
+    $settings->add(new admin_setting_description(
+        'block_adaptive_learning_ai/central_hub_banner',
+        '',
+        '<div class="alert alert-info d-flex align-items-center mb-3" style="border-left: 4px solid #0f6cbf; border-radius: 8px;">
+            <div style="font-size: 1.5rem; margin-right: 12px;">💡</div>
+            <div>
+                <strong>Pusat Pengaturan AI Terpadu:</strong> Anda kini dapat mengelola seluruh konfigurasi 
+                <em>Adaptive Learning AI</em>, <em>AICode</em>, <em>LLM Motivation</em>, dan kontrol status <em>Microservice Executor</em> 
+                dalam satu halaman di <a href="' . $huburl . '" class="alert-link font-weight-bold" style="text-decoration: underline;">Pusat Pengaturan AI</a>.
+            </div>
+        </div>'
+    ));
+
     // Heading: AI Configuration (OpenRouter & Google Gemini)
     $settings->add(new admin_setting_heading(
         'block_adaptive_learning_ai/ai_heading',

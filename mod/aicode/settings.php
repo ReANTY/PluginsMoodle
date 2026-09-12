@@ -17,6 +17,20 @@
 defined('MOODLE_INTERNAL') || die;
 
 if ($ADMIN->fulltree) {
+    $huburl = (new moodle_url('/admin/settings.php', ['section' => 'ai_central_settings']))->out();
+    $settings->add(new admin_setting_description(
+        'aicode/central_hub_banner',
+        '',
+        '<div class="alert alert-info d-flex align-items-center mb-3" style="border-left: 4px solid #0f6cbf; border-radius: 8px;">
+            <div style="font-size: 1.5rem; margin-right: 12px;">💡</div>
+            <div>
+                <strong>Pusat Pengaturan AI Terpadu:</strong> Anda kini dapat mengelola konfigurasi 
+                <em>AICode</em>, <em>Adaptive Learning AI</em>, <em>LLM Motivation</em>, dan kontrol status <em>Microservice Executor</em> 
+                dalam satu halaman di <a href="' . $huburl . '" class="alert-link font-weight-bold" style="text-decoration: underline;">Pusat Pengaturan AI</a>.
+            </div>
+        </div>'
+    ));
+
     // AI Provider Selection.
     $provideroptions = [
         'openrouter' => get_string('aiprovider_openrouter', 'aicode'),

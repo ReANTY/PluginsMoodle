@@ -2,6 +2,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/lib.php');
+require_once(__DIR__ . '/gemini_api.php');
 require_once(__DIR__ . '/classes/path_manager.php');
 
 class block_adaptive_learning_ai extends block_base {
@@ -105,7 +106,7 @@ class block_adaptive_learning_ai extends block_base {
         }
 
         $level        = 'INTERMEDIATE';
-        $levelText    = 'Intermediate';
+        $levelText    = 'Menengah';
         $statusClass  = 'intermediate';
         $scoreColor   = '#f59e0b';
         $levelColor   = '#fcd34d';
@@ -125,31 +126,31 @@ class block_adaptive_learning_ai extends block_base {
             $nextTarget    = $primaryThreshold;
         } elseif ($userScore < $primaryThreshold) {
             $level         = 'PRIMARY';
-            $levelText     = 'Primary';
+            $levelText     = 'Dasar (Primary)';
             $statusClass   = 'primary';
             $scoreColor    = '#3b82f6';
             $levelColor    = '#93c5fd';
             $progressColor = '#3b82f6';
-            $greetingMsg   = '🔵 Skor ' . $userScore . '% → Jalur <b>Primary</b>: Fokus pada penguatan konsep dasar & latihan terbimbing. Target: ' . $primaryThreshold . '%+!';
+            $greetingMsg   = '🔵 Skor ' . $userScore . '% → Jalur <b>Dasar (Primary)</b>: Fokus pada penguatan konsep fondasi & latihan terbimbing. Target: ' . $primaryThreshold . '%+!';
             $nextTarget    = $primaryThreshold;
-            $remedialNote  = '💡 Anda berada di level Primary. Pelajari materi fondasi dan gunakan latihan kode terbimbing untuk memperkuat pemahaman.';
+            $remedialNote  = '💡 Anda berada di level Dasar. Pelajari materi fondasi dan gunakan latihan kode terbimbing untuk memperkuat pemahaman.';
         } elseif ($userScore < $expertThreshold) {
             $level         = 'INTERMEDIATE';
-            $levelText     = 'Intermediate';
+            $levelText     = 'Menengah (Intermediate)';
             $statusClass   = 'intermediate';
             $scoreColor    = '#f59e0b';
             $levelColor    = '#fcd34d';
             $progressColor = '#f59e0b';
-            $greetingMsg   = '🟡 Skor ' . $userScore . '% → Jalur <b>Intermediate</b>: Pemahaman bagus! Target: ' . $expertThreshold . '%+ untuk jalur Expert!';
+            $greetingMsg   = '🟡 Skor ' . $userScore . '% → Jalur <b>Menengah (Intermediate)</b>: Pemahaman bagus! Target: ' . $expertThreshold . '%+ untuk jalur Mahir!';
             $nextTarget    = $expertThreshold;
         } else {
             $level         = 'EXPERT';
-            $levelText     = 'Expert';
+            $levelText     = 'Mahir (Expert)';
             $statusClass   = 'expert';
             $scoreColor    = '#10b981';
             $levelColor    = '#6ee7b7';
             $progressColor = '#10b981';
-            $greetingMsg   = '🟢 Skor ' . $userScore . '% → Luar biasa! Anda berada di jalur <b>Expert</b>: Siap untuk tantangan kode tingkat lanjut!';
+            $greetingMsg   = '🟢 Skor ' . $userScore . '% → Luar biasa! Anda berada di jalur <b>Mahir (Expert)</b>: Siap untuk tantangan kode tingkat lanjut!';
             $nextTarget    = 100;
         }
 
@@ -172,18 +173,17 @@ class block_adaptive_learning_ai extends block_base {
         }
 
         // ============================================================
-        // 4. REKOMENDASI BELAJAR ADAPTIF
+        // 4. REKOMENDASI BELAJAR ADAPTIF DARI GEMINI AI (OPENROUTER)
         // ============================================================
-        $aiRecommendation = '';
-        if ($userScore === 0 && $attemptCount === 0) {
-            $aiRecommendation = 'Selamat datang! Minggu 1 adalah fase pemetaan kemampuan dasar (baseline). Selesaikan materi dan kuis pertama untuk membuka jalur belajar adaptif Anda.';
-        } elseif ($userScore < $primaryThreshold) {
-            $aiRecommendation = 'Skor Anda (' . $userScore . '%) berada di jalur <b>Primary</b>. Fokuskan pemahaman pada sintaks dasar dan manfaatkan tutor kode AI di bawah untuk latihan.';
-        } elseif ($userScore < $expertThreshold) {
-            $aiRecommendation = 'Pemahaman Anda (' . $userScore . '%) berada di jalur <b>Intermediate</b>. Pertahankan konsistensi latihan untuk mencapai level Expert.';
-        } else {
-            $aiRecommendation = 'Prestasi istimewa! Skor Anda (' . $userScore . '%) mencapai level <b>Expert</b>. Anda siap mengeksplorasi studi kasus nyata dan tantangan algoritma kompleks.';
-        }
+        $recData = alai_get_course_material_recommendations(
+            $courseid,
+            (int) $USER->id,
+            $userScore,
+            $level,
+            $quizName,
+            $weekNum,
+            false
+        );
 
         // ============================================================
         // 5. PROGRESS STATS
@@ -224,7 +224,7 @@ class block_adaptive_learning_ai extends block_base {
             $scoreColor, $levelColor, $progressColor, $greetingMsg,
             $weekNum, $quizName, $quizTimeStr, $attemptCount,
             $overallProgress, $progressToNext, $nextTarget,
-            $remedialNote, $aiRecommendation,
+            $remedialNote, $recData,
             $availabilityUnlocked, $availabilityLocked,
             $studentreportlink, $pluginUrl, $isTeacher
         );
@@ -661,7 +661,7 @@ class block_adaptive_learning_ai extends block_base {
         $scoreColor, $levelColor, $progressColor, $greetingMsg,
         $weekNum, $quizName, $quizTimeStr, $attemptCount,
         $overallProgress, $progressToNext, $nextTarget,
-        $remedialNote, $aiRecommendation,
+        $remedialNote, $recData,
         $availabilityUnlocked, $availabilityLocked,
         $studentreportlink, $pluginUrl, $isTeacher
     ) {
@@ -677,23 +677,64 @@ class block_adaptive_learning_ai extends block_base {
             'nodata'       => '⚪',
         ][$level] ?? '⚪';
 
-        $levelBadgeColor = [
-            'primary'      => 'background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.4)',
-            'intermediate' => 'background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.4)',
-            'expert'       => 'background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.4)',
-            'remedial'     => 'background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.4)',
-            'standard'     => 'background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.4)',
-            'advanced'     => 'background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.4)',
-            'nodata'       => 'background:rgba(148,163,184,0.15);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)',
-        ][$statusClass] ?? '';
+        // Rekomendasi AI Gemini & Materi Kursus
+        $adviceText = !empty($recData['advice']) ? $recData['advice'] : '';
+        $recList    = !empty($recData['recommendations']) ? $recData['recommendations'] : [];
 
-        $aiHtml = '';
-        if ($aiRecommendation) {
-            $aiHtml = '<div class="alai-ai-card">
-                <div class="alai-ai-header"><i class="fas fa-robot"></i> Rekomendasi AI Gemini</div>
-                <div class="alai-ai-body">' . nl2br($aiRecommendation) . '</div>
-            </div>';
+        $itemsHtml = '';
+        if (!empty($recList)) {
+            foreach ($recList as $item) {
+                $purposeClass = 'alai-badge-core';
+                $purposeText  = $item['purpose'] ?? 'Rekomendasi';
+                if (stripos($purposeText, 'perbaikan') !== false || stripos($purposeText, 'remedial') !== false) {
+                    $purposeClass = 'alai-badge-remedial';
+                } elseif (stripos($purposeText, 'lanjutan') !== false || stripos($purposeText, 'pengayaan') !== false || stripos($purposeText, 'tantangan') !== false) {
+                    $purposeClass = 'alai-badge-advanced';
+                }
+
+                $iconHtml = function_exists('alai_render_module_icon') 
+                    ? alai_render_module_icon($item['type']) 
+                    : '<span class="alai-type-icon alai-icon-page"><i class="fas fa-book-open"></i></span>';
+
+                $itemsHtml .= '
+                <div class="alai-rec-item">
+                    <div class="alai-rec-item-icon">' . $iconHtml . '</div>
+                    <div class="alai-rec-item-content">
+                        <div class="alai-rec-item-meta">
+                            <span class="alai-sec-tag">' . htmlspecialchars($item['section']) . '</span>
+                            <span class="alai-purpose-tag ' . $purposeClass . '">' . htmlspecialchars($purposeText) . '</span>
+                        </div>
+                        <a href="' . s($item['url']) . '" class="alai-rec-item-title" title="Buka materi ' . htmlspecialchars($item['title']) . '">'
+                            . htmlspecialchars($item['title']) .
+                        '</a>
+                        ' . (!empty($item['reason']) ? '<div class="alai-rec-item-reason"><i class="fas fa-info-circle"></i> ' . htmlspecialchars($item['reason']) . '</div>' : '') . '
+                    </div>
+                    <a href="' . s($item['url']) . '" class="alai-rec-item-action" title="Buka Materi">
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>';
+            }
         }
+
+        $aiHtml = '
+        <div class="alai-ai-card" id="alaiAiCard_' . $courseid . '">
+            <div class="alai-ai-header">
+                <div class="alai-ai-title">
+                    <span class="alai-ai-icon-wrap"><i class="fas fa-robot"></i></span>
+                    <span>Rekomendasi AI Gemini</span>
+                </div>
+                <div class="alai-ai-actions">
+                    <span class="alai-model-badge"><i class="fas fa-sparkles"></i> AI Gemini</span>
+                    <button type="button" class="alai-refresh-btn" id="alaiRefreshBtn_' . $courseid . '" onclick="alaiRefreshRec_' . $courseid . '()" title="Perbarui rekomendasi materi AI">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="alai-ai-body" id="alaiAiBody_' . $courseid . '">
+                ' . (!empty($adviceText) ? '<div class="alai-ai-text">' . nl2br(htmlspecialchars($adviceText)) . '</div>' : '') . '
+                ' . (!empty($itemsHtml) ? '<div class="alai-rec-list-header"><i class="fas fa-book-reader"></i> Materi yang Disarankan:</div><div class="alai-rec-list">' . $itemsHtml . '</div>' : '') . '
+            </div>
+        </div>';
 
         $remedialHtml = '';
         if ($remedialNote) {
@@ -705,302 +746,507 @@ class block_adaptive_learning_ai extends block_base {
         $availHtml = '';
         if ($availabilityUnlocked > 0 || $availabilityLocked > 0) {
             $availHtml = '<div class="alai-avail-info">
-                <span><i class="fas fa-unlock-alt" style="color:#10b981"></i> ' . $availabilityUnlocked . ' materi dibuka</span>
-                <span><i class="fas fa-lock" style="color:#ef4444"></i> ' . $availabilityLocked . ' dikunci</span>
+                <span><i class="fas fa-unlock-alt" style="color:#059669"></i> ' . $availabilityUnlocked . ' materi dibuka</span>
+                <span><i class="fas fa-lock" style="color:#dc2626"></i> ' . $availabilityLocked . ' dikunci</span>
             </div>';
         }
 
-        $wwwroot = $CFG->wwwroot;
+        $quizMarksStr = '';
+        if (!empty($quizName) && $quizName !== '-') {
+            $quizMarksStr = $userScore . '%';
+        }
 
         return '
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
 <style>
-/* ===== ALAI PREMIUM v2 — THEME COMPATIBILITY & RESPONSIVENESS ===== */
-.block_adaptive_learning_ai .card-body{padding:0 !important}
-.block_adaptive_learning_ai .card{background:transparent !important;border:none !important;box-shadow:none !important}
-.block_adaptive_learning_ai.block{padding:0;background:transparent;border:none}
+/* ===== ALAI NATIVE MOODLE BOOST DESIGN ===== */
+.block_adaptive_learning_ai .card-body { padding: 0 !important; }
+.block_adaptive_learning_ai .card { background: transparent !important; border: none !important; box-shadow: none !important; }
+.block_adaptive_learning_ai.block { padding: 0; background: transparent; border: none; }
 
-.alai-wrap *{box-sizing:border-box}
-.alai-wrap,
-.alai-wrap p,
-.alai-wrap h1, .alai-wrap h2, .alai-wrap h3, .alai-wrap h4,
-.alai-wrap span, .alai-wrap div, .alai-wrap button,
-.alai-wrap input, .alai-wrap select, .alai-wrap option, .alai-wrap optgroup,
-.alai-wrap a, .alai-wrap strong, .alai-wrap b {
-    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-}
-.alai-wrap .fas, .alai-wrap .far, .alai-wrap .fab, .alai-wrap .fa,
-.alai-wrap i[class*="fa-"], .alai-wrap [class*="fa-"] {
-    font-family:"Font Awesome 6 Free", "FontAwesome" !important;
-    font-style:normal;
-}
-.alai-wrap{
-    background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 50%,#0f2044 100%);
-    border-radius:18px;overflow:hidden;
-    border:1px solid rgba(99,160,255,.18);
-    box-shadow:0 15px 45px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.04);
-    position:relative;
-    width:100%;max-width:100%;
-    container-type:inline-size;
-    container-name:alaicard;
-}
-.alai-wrap::before{
-    content:"";position:absolute;inset:0;
-    background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(96,165,250,.18),transparent);
-    pointer-events:none;z-index:0;
+.alai-wrap * { box-sizing: border-box; }
+.alai-wrap {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+    overflow: hidden;
+    width: 100%;
+    position: relative;
+    container-type: inline-size;
+    container-name: alaicard;
 }
 
 /* HEADER */
-.alai-header{
-    position:relative;z-index:1;
-    background:linear-gradient(135deg,rgba(59,130,246,.22) 0%,rgba(96,165,250,.10) 100%);
-    border-bottom:1px solid rgba(99,160,255,.15);
-    padding:16px 16px 12px;
-    backdrop-filter:blur(20px);
+.alai-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 16px 16px 14px;
 }
-.alai-brand{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:nowrap}
-.alai-logo{
-    width:42px;height:42px;flex-shrink:0;
-    background:linear-gradient(135deg,#3b82f6,#60a5fa);
-    border-radius:12px;display:flex;align-items:center;justify-content:center;
-    font-size:.68rem;font-weight:900;color:#fff;letter-spacing:.05em;
-    box-shadow:0 6px 16px rgba(59,130,246,.35);
+.alai-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
 }
-.alai-brand-text{min-width:0;flex:1}
-.alai-brand-text h3{
-    margin:0;font-size:.95rem;font-weight:800;
-    background:linear-gradient(90deg,#fff,#93c5fd);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-    line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+.alai-logo {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #0f6cbf 0%, #2563eb 100%);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 10px rgba(15, 108, 191, 0.22);
 }
-.alai-brand-text p{margin:2px 0 0;font-size:.58rem;color:rgba(255,255,255,.5);letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.alai-week-badge{
-    display:inline-flex;align-items:center;gap:4px;
-    padding:4px 8px;border-radius:8px;font-size:.58rem;font-weight:700;
-    background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.25);
-    flex-shrink:0;white-space:nowrap;
+.alai-brand-text {
+    min-width: 0;
+    flex: 1;
+}
+.alai-brand-text h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+}
+.alai-brand-text p {
+    margin: 2px 0 0;
+    font-size: 0.68rem;
+    color: #64748b;
+    font-weight: 500;
+}
+.alai-week-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
-/* METRICS GRID */
-.alai-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-.alai-metric{
-    background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.08);
-    border-radius:12px;padding:10px 12px;
-    transition:transform .2s,box-shadow .2s;text-align:center;
-    min-width:0;overflow:hidden;
+/* METRICS */
+.alai-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
 }
-.alai-metric:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
-.alai-metric-val{font-size:1.35rem;font-weight:900;line-height:1;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.alai-metric-lbl{font-size:.55rem;color:rgba(255,255,255,.48);text-transform:uppercase;letter-spacing:.6px;font-weight:600;white-space:nowrap}
-.alai-metric-primary      .alai-metric-val{color:#60a5fa}
-.alai-metric-intermediate .alai-metric-val{color:#fbbf24}
-.alai-metric-expert       .alai-metric-val{color:#34d399}
-.alai-metric-remedial     .alai-metric-val{color:#60a5fa}
-.alai-metric-standard     .alai-metric-val{color:#fbbf24}
-.alai-metric-advanced     .alai-metric-val{color:#34d399}
-.alai-metric-nodata       .alai-metric-val{color:#94a3b8}
+.alai-metric {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 8px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 64px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.alai-metric:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.03);
+}
+.alai-metric-val {
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+.alai-metric-level-val {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+.alai-metric-lbl {
+    font-size: 0.62rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.alai-metric-primary .alai-metric-val, .alai-metric-primary .alai-metric-level-val { color: #2563eb; }
+.alai-metric-intermediate .alai-metric-val, .alai-metric-intermediate .alai-metric-level-val { color: #d97706; }
+.alai-metric-expert .alai-metric-val, .alai-metric-expert .alai-metric-level-val { color: #059669; }
+.alai-metric-remedial .alai-metric-val, .alai-metric-remedial .alai-metric-level-val { color: #2563eb; }
+.alai-metric-standard .alai-metric-val, .alai-metric-standard .alai-metric-level-val { color: #d97706; }
+.alai-metric-advanced .alai-metric-val, .alai-metric-advanced .alai-metric-level-val { color: #059669; }
+.alai-metric-nodata .alai-metric-val, .alai-metric-nodata .alai-metric-level-val { color: #64748b; }
 
-/* PROGRESS BAR */
-.alai-progress-wrap{margin-bottom:6px}
-.alai-progress-labels{display:flex;justify-content:space-between;font-size:.58rem;color:rgba(255,255,255,.45);margin-bottom:3px}
-.alai-progress-track{
-    height:6px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;
-    border:1px solid rgba(255,255,255,.05);
+/* PROGRESS */
+.alai-progress-wrap { margin-bottom: 10px; }
+.alai-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: #64748b;
+    font-weight: 500;
+    margin-bottom: 5px;
 }
-.alai-progress-bar{
-    height:100%;border-radius:4px;
-    transition:width 1.2s cubic-bezier(.4,0,.2,1);
+.alai-progress-track {
+    height: 7px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
 }
-.alai-progress-primary      .alai-progress-bar{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
-.alai-progress-intermediate .alai-progress-bar{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
-.alai-progress-expert       .alai-progress-bar{background:linear-gradient(90deg,#10b981,#34d399)}
-.alai-progress-remedial     .alai-progress-bar{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
-.alai-progress-standard     .alai-progress-bar{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
-.alai-progress-advanced     .alai-progress-bar{background:linear-gradient(90deg,#10b981,#34d399)}
-.alai-progress-nodata       .alai-progress-bar{background:linear-gradient(90deg,#6366f1,#818cf8)}
+.alai-progress-bar {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.8s ease-in-out;
+}
+.alai-progress-primary .alai-progress-bar { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.alai-progress-intermediate .alai-progress-bar { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.alai-progress-expert .alai-progress-bar { background: linear-gradient(90deg, #10b981, #059669); }
+.alai-progress-remedial .alai-progress-bar { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.alai-progress-standard .alai-progress-bar { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.alai-progress-advanced .alai-progress-bar { background: linear-gradient(90deg, #10b981, #059669); }
+.alai-progress-nodata .alai-progress-bar { background: #94a3b8; }
 
-/* LEVEL BADGE & GREETING */
-.alai-greeting{
-    font-size:.74rem;color:rgba(255,255,255,.82);
-    margin-top:6px;line-height:1.45;
-    background:rgba(255,255,255,.04);border-radius:8px;padding:7px 10px;
-    border-left:3px solid rgba(99,160,255,.5);word-break:break-word;
+/* GREETING */
+.alai-greeting {
+    font-size: 0.74rem;
+    line-height: 1.45;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #0f6cbf;
+    color: #1e293b;
 }
 
 /* STATS ROW */
-.alai-stats-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.alai-stat-chip{
-    display:inline-flex;align-items:center;gap:4px;
-    padding:4px 8px;border-radius:6px;font-size:.62rem;
-    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
-    color:rgba(255,255,255,.65);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+.alai-stats-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
 }
-.alai-stat-chip i{font-size:.58rem;color:#60a5fa;flex-shrink:0}
+.alai-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.66rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-weight: 500;
+}
+.alai-stat-chip i { font-size: 0.65rem; color: #0f6cbf; }
 
 /* BODY */
-.alai-body{position:relative;z-index:1;padding:14px}
+.alai-body {
+    padding: 14px 16px;
+}
+
+/* REMEDIAL NOTE & NOTICE */
+.alai-adaptive-notice {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    font-size: 0.7rem;
+    color: #166534;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+.alai-adaptive-notice i { color: #16a34a; margin-top: 2px; flex-shrink: 0; }
+
+.alai-avail-info {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
+.alai-remedial-note {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 9px 11px;
+    margin-bottom: 12px;
+    font-size: 0.72rem;
+    color: #991b1b;
+    line-height: 1.45;
+}
 
 /* AI RECOMMENDATION CARD */
-.alai-ai-card{
-    background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(99,102,241,.08));
-    border:1px solid rgba(99,160,255,.2);
-    border-radius:12px;padding:12px;margin-bottom:10px;word-break:break-word;
+.alai-ai-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
 }
-.alai-ai-header{font-size:.7rem;font-weight:700;color:#93c5fd;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.alai-ai-body{font-size:.76rem;color:rgba(255,255,255,.78);line-height:1.6}
-.alai-ai-body b{color:#93c5fd}
+.alai-ai-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.alai-ai-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.alai-ai-icon-wrap {
+    width: 22px;
+    height: 22px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+.alai-ai-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.alai-model-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    padding: 2px 7px;
+    border-radius: 6px;
+}
+.alai-refresh-btn {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #64748b;
+    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.alai-refresh-btn:hover {
+    color: #0f6cbf;
+    border-color: #0f6cbf;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.alai-ai-body {
+    font-size: 0.78rem;
+    color: #334155;
+    line-height: 1.55;
+}
+.alai-ai-text {
+    margin-bottom: 12px;
+    color: #334155;
+}
 
-/* REMEDIAL NOTE */
-.alai-remedial-note{
-    background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);
-    border-radius:10px;padding:9px 11px;margin-bottom:10px;
-    font-size:.7rem;color:#fca5a5;line-height:1.45;word-break:break-word;
+/* COURSE MATERIAL RECOMMENDATION ITEMS */
+.alai-rec-list-header {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #475569;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.alai-rec-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.alai-rec-item {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    text-decoration: none !important;
+}
+.alai-rec-item:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 4px 12px rgba(15, 108, 191, 0.08);
+    transform: translateY(-1px);
+}
+.alai-rec-item-icon {
+    flex-shrink: 0;
+}
+.alai-type-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+}
+.alai-icon-page   { background: #eff6ff; color: #1d4ed8; }
+.alai-icon-quiz   { background: #fef3c7; color: #b45309; }
+.alai-icon-code   { background: #ecfdf5; color: #047857; }
+.alai-icon-assign { background: #f5f3ff; color: #6d28d9; }
+.alai-icon-forum  { background: #fdf2f8; color: #be185d; }
+
+.alai-rec-item-content {
+    flex: 1;
+    min-width: 0;
+}
+.alai-rec-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+.alai-sec-tag {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #64748b;
+}
+.alai-purpose-tag {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.alai-badge-remedial { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.alai-badge-core     { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.alai-badge-advanced { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+
+.alai-rec-item-title {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0f172a !important;
+    line-height: 1.35;
+    text-decoration: none !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.alai-rec-item:hover .alai-rec-item-title {
+    color: #0f6cbf !important;
+}
+.alai-rec-item-reason {
+    font-size: 0.68rem;
+    color: #64748b;
+    margin-top: 2px;
+    line-height: 1.3;
+}
+.alai-rec-item-action {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    text-decoration: none !important;
+    transition: all 0.2s;
+}
+.alai-rec-item:hover .alai-rec-item-action {
+    background: #0f6cbf;
+    color: #ffffff;
 }
 
-/* AVAILABILITY INFO */
-.alai-adaptive-notice{
-    background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);
-    border-radius:10px;padding:8px 10px;margin-bottom:10px;
-    font-size:.66rem;color:rgba(255,255,255,.65);line-height:1.5;
-    display:flex;gap:7px;align-items:flex-start;
+/* FOOTER & BUTTON */
+.alai-footer {
+    padding: 0 16px 16px;
 }
-.alai-adaptive-notice i{color:#818cf8;margin-top:2px;flex-shrink:0}
+.alai-report-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #0f6cbf;
+    border: 1px solid #0f6cbf;
+    color: #ffffff !important;
+    text-decoration: none !important;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.alai-report-btn:hover {
+    background: #0d5ca3;
+    border-color: #0d5ca3;
+    color: #ffffff !important;
+}
+.alai-report-btn-teacher {
+    background: #059669;
+    border-color: #059669;
+}
+.alai-report-btn-teacher:hover {
+    background: #047857;
+    border-color: #047857;
+}
 
-/* TOPICS SELECT */
-.alai-topic-select{
-    width:100%;padding:10px 12px;
-    background:rgba(255,255,255,.07);
-    border:1px solid rgba(99,160,255,.22);
-    border-radius:10px;font-size:.76rem;font-weight:600;
-    color:#f1f5f9;margin-bottom:8px;cursor:pointer;
-    appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%2360a5fa\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E");
-    background-position:right 10px center;background-repeat:no-repeat;background-size:14px;
-    transition:border-color .2s,box-shadow .2s;
-    text-overflow:ellipsis;overflow:hidden;white-space:nowrap;
-}
-.alai-topic-select:focus{outline:none;border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,.18)}
-.alai-topic-select optgroup{background:#0f2044;color:#93c5fd;font-weight:700;font-style:normal;padding:6px 8px}
-.alai-topic-select option{background:#1e3a5f;color:#f8fafc;padding:6px 10px}
-
-/* CHAT HEADER */
-.alai-chat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:0 2px}
-.alai-chat-title{font-size:.68rem;font-weight:600;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:5px}
-.alai-clear-btn{background:transparent;border:none;color:rgba(255,255,255,.45);font-size:.66rem;cursor:pointer;padding:2px 6px;border-radius:4px;transition:all .2s;display:flex;align-items:center;gap:4px}
-.alai-clear-btn:hover{color:#fca5a5;background:rgba(239,68,68,.15)}
-
-/* CHAT AREA */
-.alai-chat{
-    background:rgba(255,255,255,.04);border:1px solid rgba(99,160,255,.12);
-    border-radius:12px;padding:12px;
-    min-height:200px;max-height:clamp(220px,40vh,340px);
-    overflow-y:auto;margin-bottom:10px;
-    scrollbar-width:thin;scrollbar-color:rgba(96,165,250,.35) transparent;
-}
-.alai-chat::-webkit-scrollbar{width:4px}
-.alai-chat::-webkit-scrollbar-thumb{background:rgba(96,165,250,.35);border-radius:2px}
-
-/* MESSAGES */
-.alai-msg{
-    padding:10px 12px;border-radius:12px;font-size:.76rem;
-    line-height:1.6;margin-bottom:8px;
-    animation:msgIn .35s cubic-bezier(.25,.46,.45,.94);
-    word-break:break-word;overflow-wrap:anywhere;
-}
-@keyframes msgIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-.alai-msg-user{
-    background:linear-gradient(135deg,#3b82f6,#6366f1);
-    color:#fff;margin-left:auto;max-width:90%;
-    border:1px solid rgba(99,160,255,.3);
-}
-.alai-msg-ai{
-    background:rgba(255,255,255,.06);color:rgba(255,255,255,.88);
-    border:1px solid rgba(255,255,255,.08);
-}
-.alai-msg-ai strong{color:#93c5fd}
-.alai-chat pre, .alai-code{
-    background:rgba(15,23,42,.85);border:1px solid rgba(99,160,255,.18);
-    border-radius:8px;padding:10px;font-family:"Fira Code","Monaco",monospace;
-    font-size:.7rem;max-width:100%;overflow-x:auto;margin:6px 0;
-    color:#e2e8f0;line-height:1.65;white-space:pre-wrap;word-break:break-word;
-}
-.alai-msg-loading{
-    display:flex;gap:5px;padding:12px;align-items:center;
-    background:rgba(255,255,255,.06);border-radius:12px;margin-bottom:8px;
-}
-.alai-dot{width:6px;height:6px;background:#60a5fa;border-radius:50%;animation:bounce .8s infinite}
-.alai-dot:nth-child(2){animation-delay:.15s}
-.alai-dot:nth-child(3){animation-delay:.3s}
-@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}
-
-/* INPUT AREA */
-.alai-input-row{display:flex;gap:6px;align-items:center}
-.alai-input{
-    flex:1;min-width:0;padding:10px 14px;
-    background:rgba(255,255,255,.07);
-    border:1px solid rgba(99,160,255,.2);
-    border-radius:10px;font-size:.76rem;
-    color:#f8fafc;transition:border-color .2s,box-shadow .2s;
-}
-.alai-input::placeholder{color:rgba(255,255,255,.35)}
-.alai-input:focus{outline:none;border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,.15)}
-.alai-send{
-    background:linear-gradient(135deg,#3b82f6,#6366f1);
-    color:#fff;border:none;padding:10px 14px;border-radius:10px;
-    font-size:.76rem;font-weight:700;cursor:pointer;flex-shrink:0;
-    transition:transform .2s,box-shadow .2s;
-    display:flex;align-items:center;gap:5px;
-    box-shadow:0 4px 12px rgba(59,130,246,.35);
-}
-.alai-send:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(59,130,246,.45)}
-
-/* REPORT BTN & FOOTER */
-.alai-footer{position:relative;z-index:1;padding:0 14px 14px}
-.alai-report-btn{
-    display:flex;align-items:center;justify-content:center;gap:7px;
-    width:100%;padding:10px;border-radius:10px;
-    background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);
-    color:#93c5fd;text-decoration:none;font-size:.76rem;font-weight:600;
-    transition:all .2s;
-}
-.alai-report-btn:hover{background:rgba(59,130,246,.25);color:#bfdbfe;text-decoration:none}
-.alai-report-btn-teacher{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.3);color:#6ee7b7}
-.alai-report-btn-teacher:hover{background:rgba(16,185,129,.22)}
-
-/* CONTAINER QUERIES (Sidebar & Compact Region Responsiveness) */
+/* RESPONSIVENESS */
 @container alaicard (max-width: 330px) {
-    .alai-header{padding:12px 12px 10px}
-    .alai-body{padding:10px}
-    .alai-footer{padding:0 10px 10px}
-    .alai-brand{gap:8px;margin-bottom:10px}
-    .alai-logo{width:36px;height:36px;font-size:.62rem;border-radius:10px}
-    .alai-brand-text h3{font-size:.84rem}
-    .alai-metrics{gap:6px}
-    .alai-metric{padding:8px 4px}
-    .alai-metric-val{font-size:1.15rem}
-    .alai-metric-lbl{font-size:.5rem;letter-spacing:.3px}
-    .alai-greeting{font-size:.7rem;padding:6px 8px}
-    .alai-stats-row .alai-stat-chip:nth-child(n+3){display:none}
-    .alai-chat{min-height:180px;max-height:280px;padding:10px}
-    .alai-msg{padding:8px 10px;font-size:.73rem}
-    .alai-input{padding:8px 10px;font-size:.73rem}
-    .alai-send{padding:8px 12px;font-size:.73rem}
+    .alai-header { padding: 12px; }
+    .alai-body { padding: 10px 12px; }
+    .alai-footer { padding: 0 12px 12px; }
+    .alai-metrics { gap: 6px; }
+    .alai-metric { padding: 8px 4px; min-height: 58px; }
+    .alai-metric-val { font-size: 1.45rem; }
+    .alai-metric-level-val { font-size: 0.88rem; }
+    .alai-rec-item { padding: 8px 10px; }
+    .alai-type-icon { width: 28px; height: 28px; font-size: 0.75rem; }
 }
 @container alaicard (max-width: 260px) {
-    .alai-metrics{grid-template-columns:1fr}
-    .alai-week-badge{display:none}
-    .alai-stats-row{display:none}
-}
-
-/* VIEWPORT MEDIA QUERIES (Mobile Screen Responsiveness) */
-@media (max-width: 576px) {
-    .alai-wrap{border-radius:14px}
-    .alai-header{padding:14px 12px 10px}
-    .alai-body{padding:10px}
-    .alai-footer{padding:0 10px 12px}
-    .alai-chat{min-height:190px;max-height:290px}
+    .alai-metrics { grid-template-columns: 1fr; }
+    .alai-week-badge { display: none; }
+    .alai-stats-row { display: none; }
 }
 </style>
 
@@ -1012,10 +1258,10 @@ class block_adaptive_learning_ai extends block_base {
             <div class="alai-logo">AI</div>
             <div class="alai-brand-text">
                 <h3>Adaptive Learning AI</h3>
-                <p>Smart · Adaptive · Gemini Powered</p>
+                <p>Cerdas · Adaptif · AI Gemini</p>
             </div>
             <div style="margin-left:auto">
-                <span class="alai-week-badge"><i class="fas fa-calendar-week"></i> Week ' . $weekNum . '</span>
+                <span class="alai-week-badge"><i class="fas fa-calendar-week"></i> Minggu ' . $weekNum . '</span>
             </div>
         </div>
 
@@ -1023,10 +1269,10 @@ class block_adaptive_learning_ai extends block_base {
         <div class="alai-metrics">
             <div class="alai-metric alai-metric-' . $statusClass . '">
                 <div class="alai-metric-val">' . $userScore . '%</div>
-                <div class="alai-metric-lbl">Quiz Score</div>
+                <div class="alai-metric-lbl">Nilai Kuis</div>
             </div>
             <div class="alai-metric alai-metric-' . $statusClass . '">
-                <div class="alai-metric-val" style="font-size:1.1rem">' . $levelIcon . ' ' . $levelText . '</div>
+                <div class="alai-metric-level-val">' . $levelText . '</div>
                 <div class="alai-metric-lbl">Level Saat Ini</div>
             </div>
         </div>
@@ -1034,7 +1280,7 @@ class block_adaptive_learning_ai extends block_base {
         <!-- PROGRESS BAR -->
         <div class="alai-progress-wrap">
             <div class="alai-progress-labels">
-                <span>Progress ke ' . $nextTarget . '%</span>
+                <span>Kemajuan ke ' . $nextTarget . '%</span>
                 <span>' . $overallProgress . '%</span>
             </div>
             <div class="alai-progress-track alai-progress-' . $statusClass . '">
@@ -1051,59 +1297,24 @@ class block_adaptive_learning_ai extends block_base {
 
         <!-- STATS CHIPS -->
         <div class="alai-stats-row">
-            ' . ($quizMarksStr ? '<span class="alai-stat-chip" title="Jawaban Benar / Total Soal"><i class="fas fa-check-circle" style="color:#34d399"></i> ' . $quizMarksStr . '</span>' : '') . '
+            ' . ($quizMarksStr ? '<span class="alai-stat-chip" title="Nilai Kuis Terakhir"><i class="fas fa-check-circle" style="color:#059669"></i> ' . $quizMarksStr . '</span>' : '') . '
             <span class="alai-stat-chip"><i class="fas fa-clock"></i> ' . $quizTimeStr . '</span>
-            <span class="alai-stat-chip"><i class="fas fa-redo"></i> ' . $attemptCount . ' attempt</span>
+            <span class="alai-stat-chip"><i class="fas fa-redo"></i> ' . $attemptCount . ' percobaan</span>
             <span class="alai-stat-chip"><i class="fas fa-file-alt"></i> ' . htmlspecialchars(mb_substr($quizName, 0, 22)) . '</span>
         </div>
 
         <!-- ADAPTIVE AVAILABILITY INFO -->
         ' . ($availHtml ?: '<div class="alai-adaptive-notice">
             <i class="fas fa-magic"></i>
-            <span>Sistem Adaptive membuka materi otomatis sesuai nilai quiz Anda. Selesaikan quiz untuk mengaktifkan.</span>
+            <span>Sistem Pembelajaran Adaptif membuka materi otomatis sesuai capaian kuis Anda.</span>
         </div>') . '
 
-        <!-- AI RECOMMENDATION -->
+        <!-- AI RECOMMENDATION & COURSE MATERIALS -->
         ' . $aiHtml . '
 
         <!-- REMEDIAL NOTE -->
         ' . $remedialHtml . '
 
-        <!-- TOPIC SELECT DINAMIS KURSUS (Option C: Semua Materi & Kuis) -->
-        <select class="alai-topic-select" id="alaiTopicSelect_' . $courseid . '" onchange="alaiSendTopic_' . $courseid . '(this.value); this.selectedIndex=0;">
-            <option value="">🎯 Pilih Materi / Kuis untuk belajar dengan AI...</option>
-            ' . $this->render_course_topic_options($courseid, $isTeacher) . '
-        </select>
-
-        <!-- CHAT HEADER & RESET BUTTON -->
-        <div class="alai-chat-header">
-            <span class="alai-chat-title"><i class="fas fa-comments"></i> Percakapan AI</span>
-            <button type="button" class="alai-clear-btn" id="alaiClearBtn_' . $courseid . '" onclick="alaiClearChat_' . $courseid . '()" title="Reset dan bersihkan riwayat chat sesi ini">
-                <i class="fas fa-trash-alt"></i> Reset
-            </button>
-        </div>
-
-        <!-- CHAT AREA -->
-        <div class="alai-chat" id="alaiChat_' . $courseid . '">
-            <div class="alai-msg alai-msg-ai">
-                <strong><i class="fas fa-robot"></i> Adaptive Learning AI</strong>
-                <div style="margin-top:6px;font-size:.8rem;">
-                    Level: <span style="color:' . $levelColor . ';font-weight:700;">' . $levelText . '</span> |
-                    Score: <span style="color:' . $scoreColor . ';font-weight:700;">' . $userScore . '%</span>
-                </div>
-                <div style="margin-top:6px;color:rgba(255,255,255,.65);font-size:.77rem;">' . $greetingMsg . '</div>
-            </div>
-        </div>
-
-        <!-- INPUT -->
-        <div class="alai-input-row">
-            <input type="text" class="alai-input" id="alaiInput_' . $courseid . '"
-                placeholder="Tanya AI atau pilih topik..."
-                onkeypress="if(event.key===\'Enter\') { alaiSendTopic_' . $courseid . '(this.value); this.value=\'\'; }">
-            <button class="alai-send" onclick="var inp=document.getElementById(\'alaiInput_' . $courseid . '\'); if(inp && inp.value){ alaiSendTopic_' . $courseid . '(inp.value); inp.value=\'\'; }">
-                <i class="fas fa-paper-plane"></i>
-            </button>
-        </div>
     </div>
 
     <!-- FOOTER -->
@@ -1112,115 +1323,22 @@ class block_adaptive_learning_ai extends block_base {
 
 <script>
 (function() {
-    var CID         = ' . $courseid . ';
-    var USERID      = ' . (int) $USER->id . ';
-    var SCORE       = ' . $userScore . ';
-    var LEVEL       = "' . $level . '";
-    var SCLASS      = "' . $statusClass . '";
-    var PLUGINURL   = "' . $pluginUrl . '";
-    var WWWROOT     = "' . $CFG->wwwroot . '";
-    var STORAGE_KEY = "alai_chat_c" + CID + "_u" + USERID;
+    var CID       = ' . $courseid . ';
+    var PLUGINURL = "' . $pluginUrl . '";
 
-    // Simpan pesan ke storage browser
-    function saveChatMessage(role, content) {
-        try {
-            var raw = localStorage.getItem(STORAGE_KEY);
-            var history = raw ? JSON.parse(raw) : [];
-            if (!Array.isArray(history)) history = [];
-            history.push({ role: role, content: content, time: Date.now() });
-            if (history.length > 25) {
-                history = history.slice(-25);
-            }
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-        } catch (e) {}
-    }
+    window["alaiRefreshRec_" + CID] = function() {
+        var btn = document.getElementById("alaiRefreshBtn_" + CID);
+        var body = document.getElementById("alaiAiBody_" + CID);
+        if (!body) return;
 
-    // Muat riwayat chat saat halaman dibuka
-    function loadChatHistory() {
-        try {
-            var raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) return;
-            var history = JSON.parse(raw);
-            if (!Array.isArray(history) || history.length === 0) return;
-
-            var now = Date.now();
-            var valid = [];
-            var chat = document.getElementById("alaiChat_" + CID);
-            if (!chat) return;
-
-            for (var i = 0; i < history.length; i++) {
-                var item = history[i];
-                // Pertahankan riwayat obrolan dalam jangka waktu 24 jam
-                if (item && item.content && (!item.time || (now - item.time < 86400000))) {
-                    valid.push(item);
-                    var msgDiv = document.createElement("div");
-                    if (item.role === "user") {
-                        msgDiv.className = "alai-msg alai-msg-user";
-                        var icon = document.createElement("i");
-                        icon.className = "fas fa-user";
-                        msgDiv.appendChild(icon);
-                        msgDiv.appendChild(document.createTextNode(" " + item.content));
-                    } else {
-                        msgDiv.className = "alai-msg alai-msg-ai";
-                        msgDiv.innerHTML = item.content;
-                    }
-                    chat.appendChild(msgDiv);
-                }
-            }
-
-            if (valid.length > 0) {
-                chat.scrollTop = chat.scrollHeight;
-            }
-        } catch (e) {}
-    }
-
-    // Panggil saat script dieksekusi
-    loadChatHistory();
-
-    // Fungsi reset riwayat chat
-    window["alaiClearChat_" + CID] = function() {
-        if (confirm("Reset dan bersihkan riwayat percakapan AI kursus ini?")) {
-            try {
-                localStorage.removeItem(STORAGE_KEY);
-            } catch (e) {}
-            var chat = document.getElementById("alaiChat_" + CID);
-            if (chat) {
-                var welcome = chat.querySelector(".alai-msg-ai");
-                chat.innerHTML = "";
-                if (welcome) {
-                    chat.appendChild(welcome);
-                }
-            }
-        }
-    };
-
-    window["alaiSendTopic_" + CID] = function(topic, isAuto) {
-        if (!topic) return;
-        var chat  = document.getElementById("alaiChat_" + CID);
-        var input = document.getElementById("alaiInput_" + CID);
-
-        if (!isAuto) {
-            var userMsg       = document.createElement("div");
-            userMsg.className = "alai-msg alai-msg-user";
-            var userIcon      = document.createElement("i");
-            userIcon.className = "fas fa-user";
-            userMsg.appendChild(userIcon);
-            userMsg.appendChild(document.createTextNode(" " + topic));
-            chat.appendChild(userMsg);
-            saveChatMessage("user", topic);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = \'<i class="fas fa-spinner fa-spin"></i>\';
         }
 
-        // Loading dots
-        var loader       = document.createElement("div");
-        loader.className = "alai-msg-loading";
-        loader.innerHTML = "<div class=\"alai-dot\"></div><div class=\"alai-dot\"></div><div class=\"alai-dot\"></div>";
-        chat.appendChild(loader);
-        chat.scrollTop = chat.scrollHeight;
-
-        // AJAX ke ajax_microlearning.php dengan sesskey CSRF
         var sesskey = (window.M && window.M.cfg && window.M.cfg.sesskey) ? window.M.cfg.sesskey : "";
 
-        fetch(PLUGINURL + "/ajax_microlearning.php", {
+        fetch(PLUGINURL + "/ajax_recommendation.php", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -1229,40 +1347,29 @@ class block_adaptive_learning_ai extends block_base {
             body: JSON.stringify({
                 sesskey: sesskey,
                 courseid: CID,
-                message: topic
+                force: 1
             })
         })
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            loader.remove();
-            var aiMsg       = document.createElement("div");
-            aiMsg.className = "alai-msg alai-msg-ai";
-            var content     = d.success ? formatAlaiResponse(d.reply) : "<span style=\"color:#f87171\">Error: " + (d.reply||"Unknown") + "</span>";
-            aiMsg.innerHTML = content;
-            chat.appendChild(aiMsg);
-            chat.scrollTop = chat.scrollHeight;
-            saveChatMessage("ai", content);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = \'<i class="fas fa-sync-alt"></i>\';
+            }
+            if (d && d.success && d.html) {
+                body.innerHTML = d.html;
+            } else {
+                alert(d && d.error ? d.error : "Gagal memperbarui rekomendasi materi.");
+            }
         })
         .catch(function(e) {
-            loader.remove();
-            var errMsg       = document.createElement("div");
-            errMsg.className = "alai-msg alai-msg-ai";
-            errMsg.innerHTML = "<span style=\"color:#f87171\"><i class=\"fas fa-exclamation-triangle\"></i> Gagal memuat respon AI. Coba lagi.</span>";
-            chat.appendChild(errMsg);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = \'<i class="fas fa-sync-alt"></i>\';
+            }
+            alert("Koneksi gagal saat memperbarui rekomendasi.");
         });
     };
-
-    function formatAlaiResponse(text) {
-        if (!text) return "";
-        // Clean markdown ```html ... ``` wrapper if returned by LLM
-        text = text.replace(/^```html\s*([\s\S]*?)\s*```$/gi, \'$1\');
-        text = text.replace(/```html\s*([\s\S]*?)```/gi, \'$1\');
-        // Format pre/code blocks
-        text = text.replace(/```([\s\S]*?)```/g, \'<div class="alai-code">$1</div>\');
-        // Bold
-        text = text.replace(/\*\*([^*]+)\*\*/g, \'<strong>$1</strong>\');
-        return text;
-    }
 })();
 </script>
 ';
