@@ -390,9 +390,7 @@ class delivery_system {
 
         $category = $mot['category'] ?? '';
         $suggestion = $mot['suggestion'] ?? '';
-        $continue_btn_text = $has_post_emotion
-            ? get_string('quiz_motivation_continue_to_reflection', 'local_llmmotivation')
-            : get_string('quiz_motivation_continue', 'local_llmmotivation');
+        $continue_btn_text = get_string('quiz_motivation_continue', 'local_llmmotivation');
 
         return $OUTPUT->render_from_template(
             'local_llmmotivation/quiz_motivation',
@@ -410,6 +408,7 @@ class delivery_system {
                 'has_quizgrade' => $has_quizgrade,
                 'quizgrade_formatted' => $quizgrade_formatted,
                 'has_post_emotion' => $has_post_emotion,
+                'wait_for_emotion' => $has_post_emotion,
                 'str_title' => get_string('quiz_motivation_title', 'local_llmmotivation'),
                 'str_subtitle' => get_string('quiz_motivation_subtitle', 'local_llmmotivation'),
                 'str_suggestion_title' => get_string('quiz_motivation_suggestion_title', 'local_llmmotivation'),
@@ -418,7 +417,7 @@ class delivery_system {
         );
     }
 
-    private function get_category_label(string $category): string {
+    public function get_category_label(string $category): string {
         $map = [
             'reinforcement' => get_string('encouragement_reinforcement', 'local_llmmotivation'),
             'achievement' => get_string('encouragement_achievement', 'local_llmmotivation'),

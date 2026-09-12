@@ -416,4 +416,197 @@ class observer {
             debugging('local_llmmotivation observer::trigger_section_completion_motivation error: ' . $e->getMessage(), DEBUG_DEVELOPER);
         }
     }
+
+    /**
+     * Generate or regenerate post-section motivation incorporating student reflection note & emotion ratings.
+     *
+     * @param int $userid
+     * @param int $courseid
+     * @param int $section_num
+     * @param int $e1 Motivation rating (1-5)
+     * @param int $e2 Confidence rating (1-5)
+     * @param int $e3 Support/satisfaction rating (1-5)
+     * @param string $reflection_note Student's written reflection
+     * @return array Motivation data for display
+     */
+    public static function generate_motivation_with_reflection(
+        int $userid,
+        int $courseid,
+        int $section_num,
+        int $e1 = 0,
+        int $e2 = 0,
+        int $e3 = 0,
+        string $reflection_note = ''
+    ): array {
+        global $DB;
+
+        try {
+            // Delete any existing pending motivation for this section so it gets replaced with this fresh one
+            $DB->delete_records_select(
+                'acmls_learner_record',
+                "userid = :userid AND courseid = :courseid AND record_type = 'pending_quiz_motivation' AND data_payload LIKE :sec",
+                ['userid' => $userid, 'courseid' => $courseid, 'sec' => '%"section":' . $section_num . '%']
+            );
+
+            $status = self::check_section_completion_status($userid, $courseid, $section_num);
+            $quizgrade = $status['quiz_grade'] ?? null;
+
+            if ($quizgrade !== null) {
+                if ($quizgrade >= 70.0) {
+                    $category = 'achievement';
+                } else if ($quizgrade >= 40.0) {
+                    $category = 'reinforcement';
+                } else {
+                    $category = 'recovery';
+                }
+            } else {
+                $category = 'reinforcement';
+            }
+
+            $profile = null;
+            if (class_exists('\local_llmmotivation\profiling\profiling_system')) {
+                $profiler = new \local_llmmotivation\profiling\profiling_system();
+                $metrics = [];
+                if ($quizgrade !== null) {
+                    $metrics['score'] = $quizgrade;
+                }
+                if ($e1 > 0) $metrics['e1'] = $e1;
+                if ($e2 > 0) $metrics['e2'] = $e2;
+                if ($e3 > 0) $metrics['e3'] = $e3;
+                $profile = $profiler->update_profile($userid, $courseid, $metrics);
+            }
+
+            $user = $DB->get_record('user', ['id' => $userid], 'id, firstname, lastname');
+            $student_name = $user ? trim($user->firstname) : '';
+            $quiz_name = !empty($status['quiz_name']) ? $status['quiz_name'] : "Kuis Minggu {$section_num}";
+            $assign_name = !empty($status['assignment_name']) ? $status['assignment_name'] : "Tugas Coding Minggu {$section_num}";
+
+            $low_quizzes = $status['low_quizzes'] ?? [];
+            $incomplete_readings = $status['incomplete_readings'] ?? [];
+            $completed_readings_count = $status['completed_readings_count'] ?? 0;
+            $total_readings_count = $status['total_readings_count'] ?? 0;
+
+            $emotion_summary = "Evaluasi emosi akhir Minggu {$section_num}: Tingkat motivasi {$e1}/5, Percaya diri {$e2}/5, Kesiapan praktik {$e3}/5.";
+            if (!empty($reflection_note)) {
+                $emotion_summary .= " Catatan refleksi siswa: \"{$reflection_note}\".";
+            }
+
+            $duration_sec = (int)($status['duration_seconds'] ?? 0);
+            $duration_text = '';
+            if ($duration_sec > 0) {
+                $m = floor($duration_sec / 60);
+                $s = $duration_sec % 60;
+                $duration_text = ($m > 0) ? "{$m} menit {$s} detik" : "{$s} detik";
+            }
+
+            $context_data = [
+                'student_name' => $student_name,
+                'quiz_name' => $quiz_name,
+                'quiz_grade' => $quizgrade,
+                'duration_seconds' => $duration_sec,
+                'duration_text' => $duration_text,
+                'assignment_name' => $assign_name,
+                'assignment_submitted' => true,
+                'section_num' => $section_num,
+                'low_quizzes' => $low_quizzes,
+                'low_quizzes_summary' => !empty($low_quizzes) ? implode(', ', array_slice($low_quizzes, 0, 3)) : '',
+                'incomplete_readings' => $incomplete_readings,
+                'incomplete_readings_summary' => !empty($incomplete_readings) ? implode(', ', array_slice($incomplete_readings, 0, 3)) : '',
+                'completed_readings_count' => $completed_readings_count,
+                'total_readings_count' => $total_readings_count,
+                'emotion_summary' => $emotion_summary,
+                'reflection_note' => $reflection_note,
+                'post_e1' => $e1,
+                'post_e2' => $e2,
+                'post_e3' => $e3,
+            ];
+
+            $message = [];
+
+            // Try LLM generation first
+            $apikey = (string) get_config('local_llmmotivation', 'gemini_apikey');
+            if (!empty($apikey) && class_exists('\local_llmmotivation\motivation\llm_preparation')) {
+                try {
+                    $repo = new \local_llmmotivation\motivation\motivation_sentence_repository();
+                    $generator = \local_llmmotivation\motivation\llm_preparation::build_from_config($repo);
+                    $message = $generator->generate_encouragement_record($profile, $category, $context_data);
+                    if ($quizgrade !== null && method_exists($generator, 'generate_suggestion')) {
+                        $llm_sugg = $generator->generate_suggestion($profile, $category, $quizgrade, $context_data);
+                        if (!empty($llm_sugg)) {
+                            $message['suggestion'] = $llm_sugg;
+                        }
+                    }
+                } catch (\Throwable $ex) {
+                    debugging('local_llmmotivation generate_motivation_with_reflection LLM error: ' . $ex->getMessage(), DEBUG_DEVELOPER);
+                }
+            }
+
+            // Fallback message if LLM is unavailable
+            if (empty($message['content'])) {
+                $greeting = !empty($student_name) ? "Halo {$student_name}! " : "Halo! ";
+                $grade_info = ($quizgrade !== null) ? "dengan nilai {$quizgrade}% pada {$quiz_name}" : "pada {$quiz_name}";
+                $ref_ack = !empty($reflection_note) ? " Terima kasih atas refleksimu (\"{$reflection_note}\")." : "";
+                $message = [
+                    'content' => $greeting . "Luar biasa! Kamu telah menuntaskan seluruh pembelajaran Minggu {$section_num} {$grade_info}.{$ref_ack} Terus pertahankan semangat dan konsistensi belajarmu!",
+                    'category' => $category,
+                    'source' => 'system',
+                ];
+            }
+
+            $suggestion = !empty($message['suggestion'])
+                ? (string) $message['suggestion']
+                : \local_llmmotivation\delivery\delivery_system::get_adaptive_suggestion($profile, $category, $quizgrade, $context_data);
+
+            $pending = new \stdClass();
+            $pending->userid = $userid;
+            $pending->courseid = $courseid;
+            $pending->record_type = 'pending_quiz_motivation';
+            $pending->source_component = 'motivation';
+            $pending->data_payload = json_encode([
+                'content' => $message['content'],
+                'suggestion' => $suggestion,
+                'category' => $message['category'] ?? $category,
+                'source' => $message['source'] ?? 'system',
+                'quizgrade' => $quizgrade,
+                'section' => $section_num,
+                'quizname' => $quiz_name,
+                'assignmentname' => $assign_name,
+                'reflection_note' => $reflection_note,
+                'post_e1' => $e1,
+                'post_e2' => $e2,
+                'post_e3' => $e3,
+                'timecreated' => time(),
+            ]);
+            $pending->profile_version = $profile ? (int) $profile->profile_version : 0;
+            $pending->timecreated = time();
+            $newid = $DB->insert_record('acmls_learner_record', $pending);
+
+            $cat_labels = [
+                'reinforcement' => get_string('encouragement_reinforcement', 'local_llmmotivation'),
+                'achievement' => get_string('encouragement_achievement', 'local_llmmotivation'),
+                'recovery' => get_string('encouragement_recovery', 'local_llmmotivation'),
+                'persistence' => get_string('encouragement_persistence', 'local_llmmotivation'),
+            ];
+            $category_key = $message['category'] ?? $category;
+
+            return [
+                'recordid' => (int) $newid,
+                'content' => $message['content'],
+                'suggestion' => $suggestion,
+                'category' => $category_key,
+                'category_label' => $cat_labels[$category_key] ?? ucfirst($category_key),
+                'source' => $message['source'] ?? 'system',
+                'is_gemini' => ($message['source'] ?? '') === 'gemini',
+                'quizgrade' => $quizgrade,
+                'quizgrade_formatted' => ($quizgrade !== null) ? get_string('quiz_motivation_score', 'local_llmmotivation', round($quizgrade, 1)) : '',
+                'has_quizgrade' => ($quizgrade !== null),
+                'has_suggestion' => !empty($suggestion),
+                'section' => $section_num,
+            ];
+
+        } catch (\Throwable $e) {
+            debugging('local_llmmotivation generate_motivation_with_reflection error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return [];
+        }
+    }
 }

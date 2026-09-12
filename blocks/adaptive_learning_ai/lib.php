@@ -158,14 +158,34 @@ HTML;
 
         $css_selectors = [];
         foreach ($hidden_cmids as $cmid) {
+            // Main course page elements
             $css_selectors[] = "#module-{$cmid}";
             $css_selectors[] = "li.activity#module-{$cmid}";
             $css_selectors[] = ".activity-item[data-id=\"{$cmid}\"]";
+
+            // Left course index drawer (dropdown sebelah kiri)
+            $css_selectors[] = "#course-index-cm-{$cmid}";
+            $css_selectors[] = "li.courseindex-item#course-index-cm-{$cmid}";
+            $css_selectors[] = ".courseindex-item[data-id=\"{$cmid}\"]";
+            $css_selectors[] = "li.courseindex-item[data-id=\"{$cmid}\"]";
+            $css_selectors[] = "[data-for=\"cm\"][data-id=\"{$cmid}\"]";
+            $css_selectors[] = "a.courseindex-link[href*=\"id={$cmid}\"]";
         }
 
         $hide_css = '';
         if (!empty($css_selectors)) {
-            $hide_css = implode(', ', $css_selectors) . " { display: none !important; }\n";
+            $hide_css = implode(",\n", $css_selectors) . " {\n"
+                . "    display: none !important;\n"
+                . "    visibility: hidden !important;\n"
+                . "    height: 0 !important;\n"
+                . "    min-height: 0 !important;\n"
+                . "    max-height: 0 !important;\n"
+                . "    margin: 0 !important;\n"
+                . "    padding: 0 !important;\n"
+                . "    overflow: hidden !important;\n"
+                . "    pointer-events: none !important;\n"
+                . "    border: none !important;\n"
+                . "}\n";
         }
 
         // Siapkan info banner level per section untuk siswa
@@ -190,6 +210,7 @@ HTML;
         }
 
         $json_banners = json_encode($section_banners);
+        $json_hidden_cmids = json_encode(array_values($hidden_cmids));
 
         $html .= <<<HTML
 <style>
@@ -228,32 +249,98 @@ HTML;
 }
 </style>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+(function() {
+    var hiddenCmids = {$json_hidden_cmids};
     var banners = {$json_banners};
-    banners.forEach(function(b) {
-        var secEl = document.querySelector('#section-' + b.secnum + ' .content, #section-' + b.secnum + ' .course-section-header, li#section-' + b.secnum);
-        if (secEl && !secEl.querySelector('.alai-path-banner[data-sec="' + b.secnum + '"]')) {
-            var bannerDiv = document.createElement('div');
-            bannerDiv.className = 'alai-path-banner';
-            bannerDiv.setAttribute('data-sec', b.secnum);
-            bannerDiv.style.background = b.bg;
-            bannerDiv.style.border = '1px solid ' + b.border;
-            bannerDiv.innerHTML = '<div class="alai-path-left">' +
-                '<span class="alai-path-tag" style="background:#ffffff; color:' + b.color + '; border:1px solid ' + b.border + ';">' +
-                '<i class="fa ' + b.icon + '"></i> Jalur Belajar: ' + b.label + '</span>' +
-                '<span class="alai-path-desc">' + b.desc + ' (Disaring berdasarkan performa minggu sebelumnya)</span>' +
-                '</div>' +
-                '<span style="font-size:0.75rem; color:#64748b;"><i class="fa fa-filter"></i> Materi adaptif aktif</span>';
 
-            var headerEl = secEl.querySelector('.course-section-header') || secEl.querySelector('h3.sectionname') || secEl.firstChild;
-            if (headerEl && headerEl.nextSibling) {
-                headerEl.parentNode.insertBefore(bannerDiv, headerEl.nextSibling);
-            } else {
-                secEl.insertBefore(bannerDiv, secEl.firstChild);
+    function purgeHiddenElements() {
+        if (!hiddenCmids || !hiddenCmids.length) return;
+        hiddenCmids.forEach(function(cmid) {
+            // 1. Remove course index drawer items (dropdown sebelah kiri)
+            var indexItem = document.getElementById('course-index-cm-' + cmid);
+            if (indexItem) {
+                indexItem.remove();
             }
-        }
+            document.querySelectorAll('.courseindex-item[data-id="' + cmid + '"], [data-for="cm"][data-id="' + cmid + '"]').forEach(function(el) {
+                el.remove();
+            });
+            document.querySelectorAll('a.courseindex-link[href*="id=' + cmid + '"]').forEach(function(a) {
+                var parentLi = a.closest('.courseindex-item');
+                if (parentLi) {
+                    parentLi.remove();
+                } else {
+                    a.remove();
+                }
+            });
+
+            // 2. Remove main section module items
+            var mainMod = document.getElementById('module-' + cmid);
+            if (mainMod) {
+                mainMod.remove();
+            }
+            document.querySelectorAll('.activity-item[data-id="' + cmid + '"], li.activity#module-' + cmid).forEach(function(el) {
+                el.remove();
+            });
+        });
+    }
+
+    function renderBanners() {
+        if (!banners || !banners.length) return;
+        banners.forEach(function(b) {
+            var secEl = document.querySelector('#section-' + b.secnum + ' .content, #section-' + b.secnum + ' .course-section-header, li#section-' + b.secnum);
+            if (secEl && !secEl.querySelector('.alai-path-banner[data-sec="' + b.secnum + '"]')) {
+                var bannerDiv = document.createElement('div');
+                bannerDiv.className = 'alai-path-banner';
+                bannerDiv.setAttribute('data-sec', b.secnum);
+                bannerDiv.style.background = b.bg;
+                bannerDiv.style.border = '1px solid ' + b.border;
+                bannerDiv.innerHTML = '<div class="alai-path-left">' +
+                    '<span class="alai-path-tag" style="background:#ffffff; color:' + b.color + '; border:1px solid ' + b.border + ';">' +
+                    '<i class="fa ' + b.icon + '"></i> Jalur Belajar: ' + b.label + '</span>' +
+                    '<span class="alai-path-desc">' + b.desc + ' (Disaring berdasarkan performa minggu sebelumnya)</span>' +
+                    '</div>' +
+                    '<span style="font-size:0.75rem; color:#64748b;"><i class="fa fa-filter"></i> Materi adaptif aktif</span>';
+
+                var headerEl = secEl.querySelector('.course-section-header') || secEl.querySelector('h3.sectionname') || secEl.firstChild;
+                if (headerEl && headerEl.nextSibling) {
+                    headerEl.parentNode.insertBefore(bannerDiv, headerEl.nextSibling);
+                } else {
+                    secEl.insertBefore(bannerDiv, secEl.firstChild);
+                }
+            }
+        });
+    }
+
+    function initAdaptiveView() {
+        purgeHiddenElements();
+        renderBanners();
+    }
+
+    // Execute immediately
+    initAdaptiveView();
+
+    // Execute on DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAdaptiveView);
+    } else {
+        initAdaptiveView();
+    }
+
+    // Observe drawer and main course DOM dynamically
+    var observeTarget = document.getElementById('courseindex') || document.querySelector('.courseindex') || document.body;
+    if (observeTarget && window.MutationObserver) {
+        var domObserver = new MutationObserver(function() {
+            purgeHiddenElements();
+            renderBanners();
+        });
+        domObserver.observe(observeTarget, { childList: true, subtree: true });
+    }
+
+    // Periodic safety passes during page load
+    [80, 200, 500, 1000, 2000].forEach(function(delay) {
+        setTimeout(initAdaptiveView, delay);
     });
-});
+})();
 </script>
 HTML;
     }

@@ -383,6 +383,7 @@ class llm_preparation {
         $duration = !empty($context['duration_text']) ? $context['duration_text'] : '';
         $attendance = !empty($context['attendance_summary']) ? $context['attendance_summary'] : '';
         $emotion = !empty($context['emotion_summary']) ? $context['emotion_summary'] : '';
+        $reflection = !empty($context['reflection_note']) ? trim($context['reflection_note']) : '';
         $assign_name = !empty($context['assignment_name']) ? $context['assignment_name'] : '';
         $low_quizzes = !empty($context['low_quizzes_summary']) ? $context['low_quizzes_summary'] : '';
         $incomplete_readings = !empty($context['incomplete_readings_summary']) ? $context['incomplete_readings_summary'] : '';
@@ -397,6 +398,7 @@ class llm_preparation {
         $duration_line = $duration !== '' ? "- Lama Waktu Pengerjaan Kuis: {$duration}\n" : "";
         $attendance_line = $attendance !== '' ? "- Data Kehadiran & Keaktifan Belajar: {$attendance}\n" : "";
         $emotion_line = $emotion !== '' ? "- Hasil Inputan Kesiapan Emosi Mahasiswa: {$emotion}\n" : "";
+        $reflection_line = $reflection !== '' ? "- Catatan Refleksi & Kesan Siswa Setelah Belajar: \"{$reflection}\"\n" : "";
 
         $b_desc = "Dimensi Perilaku: " .
                   "Akses materi: {$anon_profile['b1_access_count']} kali, " .
@@ -426,6 +428,7 @@ class llm_preparation {
             "{$duration_line}" .
             "{$attendance_line}" .
             "{$emotion_line}" .
+            "{$reflection_line}" .
             "- Kategori performa: {$performancelabel}\n" .
             "- Kategori motivasi: {$motivationlabel}\n" .
             "- Kategori intervensi: {$category}\n" .
@@ -435,12 +438,13 @@ class llm_preparation {
             "ATURAN GENERASI SARAN ADAPTIF:\n" .
             "1. Sajikan data konkret capaiannya! Jika ada kuis/sub-materi yang nilainya masih kurang ({$low_quizzes}) atau modul yang belum selesai dibaca ({$incomplete_readings}), SEBUTKAN nama materi tersebut dan sarankan secara spesifik konsep apa yang perlu dipelajari ulang.\n" .
             "2. Apresiasi keberhasilannya menyelesaikan tugas coding ({$assign_name}) dan kuis ({$quizname} dengan nilai {$grade_val}).\n" .
-            "3. Analisis interaksi holistik antara Nama, Lama Mengerjakan ({$duration}), Nilai ({$grade_val}), dan Kesiapan Emosinya:\n" .
+            "3. Jika siswa memberikan Catatan Refleksi Mandiri (\"{$reflection}\"), tanggapi secara empati kendala atau hal yang dirasakannya dalam saran langkah belajarmu.\n" .
+            "4. Analisis interaksi holistik antara Nama, Lama Mengerjakan ({$duration}), Nilai ({$grade_val}), dan Kesiapan Emosinya:\n" .
             "   - Bila mengerjakan sangat cepat (< 2-3 menit) tapi nilai masih rendah: sarankan dengan santai agar tidak terburu-buru dan lebih cermat membaca butir soal kuis materi tersebut.\n" .
             "   - Bila emosi mahasiswa sempat cemas atau kurang percaya diri: berikan langkah kecil bertahap yang menenangkan dan membuat lebih yakin dengan kemampuannya.\n" .
-            "4. Kalimat harus ringkas (maksimal 2 kalimat), bersahabat, terasa seperti obrolan mentor yang peduli, dan memberikan tindakan nyata yang bisa langsung dipraktikkan.\n" .
-            "5. PENTING: Gunakan kata sapaan 'kamu' (contoh: 'pemahamanmu', 'langkah belajarmu'). JANGAN PERNAH gunakan kata 'Anda'. Hindari bahasa kaku atau birokratis.\n" .
-            "6. JANGAN sebutkan simbol variabel teknis (seperti 'b1', 'c2', 'e1'). Sebutkan secara alami dalam konteks pembelajaran.";
+            "5. Kalimat harus ringkas (maksimal 2 kalimat), bersahabat, terasa seperti obrolan mentor yang peduli, dan memberikan tindakan nyata yang bisa langsung dipraktikkan.\n" .
+            "6. PENTING: Gunakan kata sapaan 'kamu' (contoh: 'pemahamanmu', 'langkah belajarmu'). JANGAN PERNAH gunakan kata 'Anda'. Hindari bahasa kaku atau birokratis.\n" .
+            "7. JANGAN sebutkan simbol variabel teknis (seperti 'b1', 'c2', 'e1'). Sebutkan secara alami dalam konteks pembelajaran.";
     }
 
     /**
@@ -460,6 +464,7 @@ class llm_preparation {
         $duration = !empty($context['duration_text']) ? $context['duration_text'] : '';
         $attendance = !empty($context['attendance_summary']) ? $context['attendance_summary'] : '';
         $emotion = !empty($context['emotion_summary']) ? $context['emotion_summary'] : '';
+        $reflection = !empty($context['reflection_note']) ? trim($context['reflection_note']) : '';
         $quizgrade = isset($context['quiz_grade']) && $context['quiz_grade'] !== null ? round((float)$context['quiz_grade'], 1) . "%" : "{$anon_profile['c1_quiz_avg']}%";
         $assign_name = !empty($context['assignment_name']) ? $context['assignment_name'] : '';
         $low_quizzes = !empty($context['low_quizzes_summary']) ? $context['low_quizzes_summary'] : '';
@@ -474,6 +479,7 @@ class llm_preparation {
         $duration_line = $duration !== '' ? "- Lama Pengerjaan Kuis: {$duration}\n" : "";
         $attendance_line = $attendance !== '' ? "- Kehadiran & Keaktifan Belajar: {$attendance}\n" : "";
         $emotion_line = $emotion !== '' ? "- Hasil Inputan Kesiapan Emosi Mahasiswa: {$emotion}\n" : "";
+        $reflection_line = $reflection !== '' ? "- Catatan Refleksi & Kesan Siswa Setelah Belajar: \"{$reflection}\"\n" : "";
         
         $b_desc = "Keterlibatan Perilaku: " .
                   "Akses materi: {$anon_profile['b1_access_count']} kali, " .
@@ -504,6 +510,7 @@ class llm_preparation {
             "{$duration_line}" .
             "{$attendance_line}" .
             "{$emotion_line}" .
+            "{$reflection_line}" .
             "- Kategori performa: {$performancelabel}\n" .
             "- Tingkat motivasi: {$motivationlabel} (Skor gabungan: {$anon_profile['motivation_level']}/100)\n" .
             "- Kategori intervensi: {$category}\n" .
@@ -513,10 +520,11 @@ class llm_preparation {
             "ATURAN GENERASI MOTIVASI:\n" .
             "1. Panggil nama mahasiswa (jika tersedia: '{$name}') di awal kalimat (misal: 'Halo {$name}!' atau 'Keren banget, {$name}!') agar terasa akrab.\n" .
             "2. Sajikan data capaian konkretnya: sebutkan nilai kuis yang diraih ({$quizgrade}) dan keberhasilannya mengirim tugas ({$assign_name}).\n" .
-            "3. Jika ada materi atau kuis yang masih kurang ({$low_quizzes} atau {$incomplete_readings}), sebutkan secara lembut dan berikan dorongan bahwa hal tersebut adalah proses wajar yang bisa dipelajari pelan-pelan.\n" .
-            "4. Kalimat harus singkat (1-2 kalimat), positif, hangat, dan membangkitkan semangat belajarnya kembali.\n" .
-            "5. PENTING: Gunakan kata sapaan 'kamu' (contoh: 'semangatmu', 'usahamu', 'proses belajarmu'). JANGAN PERNAH gunakan kata 'Anda' dan jangan gunakan bahasa birokratis/terlalu formal.\n" .
-            "6. JANGAN sebutkan nama variabel teknis (seperti 'b1', 'c2', dll.) secara langsung.";
+            "3. Jika siswa menyampaikan Catatan Refleksi Mandiri (\"{$reflection}\"), tanggapi secara hangat dan berikan dorongan atau penguatan terkait apa yang ia sampaikan.\n" .
+            "4. Jika ada materi atau kuis yang masih kurang ({$low_quizzes} atau {$incomplete_readings}), sebutkan secara lembut dan berikan dorongan bahwa hal tersebut adalah proses wajar yang bisa dipelajari pelan-pelan.\n" .
+            "5. Kalimat harus singkat (1-2 kalimat), positif, hangat, dan membangkitkan semangat belajarnya kembali.\n" .
+            "6. PENTING: Gunakan kata sapaan 'kamu' (contoh: 'semangatmu', 'usahamu', 'proses belajarmu'). JANGAN PERNAH gunakan kata 'Anda' dan jangan gunakan bahasa birokratis/terlalu formal.\n" .
+            "7. JANGAN sebutkan nama variabel teknis (seperti 'b1', 'c2', dll.) secara langsung.";
     }
 
     /**

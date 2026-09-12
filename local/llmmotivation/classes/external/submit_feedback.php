@@ -87,10 +87,34 @@ class submit_feedback extends \external_api {
                 ]);
             }
 
+            // If this is post-section evaluation, generate/update AI motivation using this reflection!
+            $has_motivation = false;
+            $motivation_payload = '';
+            if (preg_match('/post_section_(\d+)/', (string)$params['category'], $matches)) {
+                $sec_num = (int)$matches[1];
+                if (class_exists('\local_llmmotivation\event\observer')) {
+                    $mot_data = \local_llmmotivation\event\observer::generate_motivation_with_reflection(
+                        (int)$params['userid'],
+                        (int)$params['courseid'],
+                        $sec_num,
+                        (int)$params['e1'],
+                        (int)$params['e2'],
+                        (int)$params['e3'],
+                        (string)$params['reflection_note']
+                    );
+                    if (!empty($mot_data)) {
+                        $has_motivation = true;
+                        $motivation_payload = json_encode($mot_data);
+                    }
+                }
+            }
+
             return [
                 'success' => true,
                 'message' => '',
                 'feedbackid' => (int)$feedbackid,
+                'has_motivation' => $has_motivation,
+                'motivation_json' => $motivation_payload,
             ];
         } catch (\Throwable $e) {
             debugging('local_llmmotivation submit_feedback error: ' . $e->getMessage(), DEBUG_DEVELOPER);
@@ -98,6 +122,8 @@ class submit_feedback extends \external_api {
                 'success' => false,
                 'message' => $e->getMessage(),
                 'feedbackid' => 0,
+                'has_motivation' => false,
+                'motivation_json' => '',
             ];
         }
     }
@@ -107,6 +133,8 @@ class submit_feedback extends \external_api {
             'success' => new \external_value(PARAM_BOOL, 'Success indicator'),
             'message' => new \external_value(PARAM_TEXT, 'Error message if any'),
             'feedbackid' => new \external_value(PARAM_INT, 'Feedback record ID'),
+            'has_motivation' => new \external_value(PARAM_BOOL, 'Has motivation flag', VALUE_DEFAULT, false),
+            'motivation_json' => new \external_value(PARAM_RAW, 'Motivation JSON payload', VALUE_DEFAULT, ''),
         ]);
     }
 }
