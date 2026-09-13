@@ -111,7 +111,7 @@ $week8_data = [
                 'description' => '<h3>Tugas</h3><p>Template HTML sudah disediakan. Tulis JS yang menampilkan <code>"Siap membangun Todo List!"</code> di <code>#info</code> saat halaman dimuat.</p>',
                 'htmltemplate' => $todohtml,
                 'csstemplate' => js_iframe_css(),
-                'startercode' => "document.getElementById('info').textContent = 'Siap membangun Todo List!';\n",
+                'startercode' => "// Tampilkan \"Siap membangun Todo List!\" di elemen #info saat halaman dimuat\n\n",
                 'testcases' => '[]',
             ],
             'micro_quiz' => js_micro_quiz_full([

@@ -108,7 +108,7 @@ $week6_data = [
                 'description' => '<h3>Tugas</h3><p>Buat <code>tambah(a,b)</code> dengan return. Saat tombol Hitung diklik, tampilkan <code>"Hasil: [jumlah]"</code> di <code>#hasil</code>.</p>',
                 'htmltemplate' => $kalkhtml,
                 'csstemplate' => js_iframe_css(),
-                'startercode' => "function tambah(a, b) {\n  return a + b;\n}\n\ndocument.getElementById('btnHitung').addEventListener('click', function() {\n  // Ambil angka1, angka2, tampilkan hasil\n});\n",
+                'startercode' => "function tambah(a, b) {\n  // Return hasil penjumlahan a dan b\n}\n\ndocument.getElementById('btnHitung').addEventListener('click', function() {\n  // Ambil angka1 dan angka2, panggil tambah(a, b), tampilkan \"Hasil: [jumlah]\" di #hasil\n});\n",
                 'testcases' => '[]',
             ],
             'micro_quiz' => js_micro_quiz_full([
