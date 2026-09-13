@@ -107,10 +107,6 @@ $recData = alai_get_course_material_recommendations($courseid, (int)$USER->id, $
 
 // Render HTML
 $recHtml = '';
-if (!empty($recData['advice'])) {
-    $recHtml .= '<div class="alai-ai-text">' . nl2br(htmlspecialchars($recData['advice'])) . '</div>';
-}
-
 if (!empty($recData['recommendations'])) {
     $recHtml .= '<div class="alai-rec-list-header"><i class="fas fa-book-reader"></i> Materi yang Disarankan:</div>';
     $recHtml .= '<div class="alai-rec-list">';

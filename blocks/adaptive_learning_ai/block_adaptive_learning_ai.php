@@ -731,8 +731,7 @@ class block_adaptive_learning_ai extends block_base {
                 </div>
             </div>
             <div class="alai-ai-body" id="alaiAiBody_' . $courseid . '">
-                ' . (!empty($adviceText) ? '<div class="alai-ai-text">' . nl2br(htmlspecialchars($adviceText)) . '</div>' : '') . '
-                ' . (!empty($itemsHtml) ? '<div class="alai-rec-list-header"><i class="fas fa-book-reader"></i> Materi yang Disarankan:</div><div class="alai-rec-list">' . $itemsHtml . '</div>' : '') . '
+                ' . (!empty($itemsHtml) ? '<div class="alai-rec-list-header"><i class="fas fa-book-reader"></i> Materi yang Disarankan:</div><div class="alai-rec-list">' . $itemsHtml . '</div>' : '<div class="alai-rec-empty">Tidak ada materi rekomendasi baru saat ini.</div>') . '
             </div>
         </div>';
 
