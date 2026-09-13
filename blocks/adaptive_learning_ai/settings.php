@@ -69,7 +69,8 @@ if ($ADMIN->fulltree) {
         'block_adaptive_learning_ai/expert_threshold',
         get_string('setting_expert_threshold', 'block_adaptive_learning_ai'),
         get_string('setting_expert_threshold_desc', 'block_adaptive_learning_ai'),
-        85,
+        90,
         PARAM_INT
     ));
 }
+

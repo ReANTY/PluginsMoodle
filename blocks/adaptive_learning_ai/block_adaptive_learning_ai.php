@@ -96,7 +96,7 @@ class block_adaptive_learning_ai extends block_base {
         // 2. TENTUKAN LEVEL OTOMATIS DARI PENGATURAN MOODLE
         // ============================================================
         $primaryThreshold = (int) (get_config('block_adaptive_learning_ai', 'primary_threshold') ?: (get_config('block_adaptive_learning_ai', 'remedial_threshold') ?: 70));
-        $expertThreshold  = (int) (get_config('block_adaptive_learning_ai', 'expert_threshold') ?: (get_config('block_adaptive_learning_ai', 'advanced_threshold') ?: 85));
+        $expertThreshold  = (int) (get_config('block_adaptive_learning_ai', 'expert_threshold') ?: (get_config('block_adaptive_learning_ai', 'advanced_threshold') ?: 90));
 
         // Evaluasi performa kognitif gabungan (Kuis + AICode) jika ada
         $prevWeek = max(1, $weekNum - 1);
@@ -627,8 +627,9 @@ class block_adaptive_learning_ai extends block_base {
                         $icon = '💬 [Diskusi] ';
                     }
 
-                    $val = $secName . ' - ' . $cm->name;
-                    $secOptions .= '<option value="' . s($val) . '">' . $icon . s($cm->name) . '</option>';
+                    $cleanName = \block_adaptive_learning_ai\path_manager::strip_level_tag($cm->name);
+                    $val = $secName . ' - ' . $cleanName;
+                    $secOptions .= '<option value="' . s($val) . '">' . $icon . s($cleanName) . '</option>';
                 }
 
                 if (!empty($secOptions)) {
@@ -704,8 +705,8 @@ class block_adaptive_learning_ai extends block_base {
                             <span class="alai-sec-tag">' . htmlspecialchars($item['section']) . '</span>
                             <span class="alai-purpose-tag ' . $purposeClass . '">' . htmlspecialchars($purposeText) . '</span>
                         </div>
-                        <a href="' . s($item['url']) . '" class="alai-rec-item-title" title="Buka materi ' . htmlspecialchars($item['title']) . '">'
-                            . htmlspecialchars($item['title']) .
+                        <a href="' . s($item['url']) . '" class="alai-rec-item-title" title="Buka materi ' . htmlspecialchars(\block_adaptive_learning_ai\path_manager::strip_level_tag($item['title'])) . '">'
+                            . htmlspecialchars(\block_adaptive_learning_ai\path_manager::strip_level_tag($item['title'])) .
                         '</a>
                         ' . (!empty($item['reason']) ? '<div class="alai-rec-item-reason"><i class="fas fa-info-circle"></i> ' . htmlspecialchars($item['reason']) . '</div>' : '') . '
                     </div>

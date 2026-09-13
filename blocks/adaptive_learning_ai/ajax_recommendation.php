@@ -128,7 +128,7 @@ if (!empty($recData['recommendations'])) {
                     <span class="alai-sec-tag">' . htmlspecialchars($item['section']) . '</span>
                     <span class="alai-purpose-tag ' . $purposeClass . '">' . htmlspecialchars($purposeText) . '</span>
                 </div>
-                <a href="' . s($item['url']) . '" class="alai-rec-item-title" target="_top">' . htmlspecialchars($item['title']) . '</a>
+                <a href="' . s($item['url']) . '" class="alai-rec-item-title" target="_top">' . htmlspecialchars(\block_adaptive_learning_ai\path_manager::strip_level_tag($item['title'])) . '</a>
                 ' . (!empty($item['reason']) ? '<div class="alai-rec-item-reason"><i class="fas fa-info-circle"></i> ' . htmlspecialchars($item['reason']) . '</div>' : '') . '
             </div>
             <a href="' . s($item['url']) . '" class="alai-rec-item-action" title="Buka Materi" target="_top">

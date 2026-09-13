@@ -73,35 +73,36 @@ function block_adaptive_learning_ai_render_adaptive_view(int $courseid): string 
 
     $html = '';
 
-    if ($is_teacher) {
-        // =========================================================================
-        // MODE GURU / ADMIN: Berikan visual badge penanda tingkatan pada modul
-        // =========================================================================
-        $badge_data = [];
-        foreach ($sections as $secnum => $section) {
-            if ($secnum <= 0 || empty($modinfo->sections[$secnum])) {
-                continue;
-            }
-            foreach ($modinfo->sections[$secnum] as $cmid) {
-                $cm = $modinfo->cms[$cmid];
-                $mod_level = \block_adaptive_learning_ai\path_manager::detect_module_level($cm->name);
-                if ($mod_level !== null) {
-                    $binfo = \block_adaptive_learning_ai\path_manager::get_level_badge_info($mod_level);
-                    $badge_data[] = [
-                        'cmid'   => $cmid,
-                        'level'  => $mod_level,
-                        'label'  => $binfo['label'],
-                        'color'  => $binfo['color'],
-                        'bg'     => $binfo['bg'],
-                        'border' => $binfo['border'],
-                        'icon'   => $binfo['icon']
-                    ];
-                }
+    // Kumpulkan badge data untuk modul-modul yang memiliki tingkatan level
+    $badge_data = [];
+    foreach ($sections as $secnum => $section) {
+        if ($secnum <= 0 || empty($modinfo->sections[$secnum])) {
+            continue;
+        }
+        foreach ($modinfo->sections[$secnum] as $cmid) {
+            $cm = $modinfo->cms[$cmid];
+            $mod_level = \block_adaptive_learning_ai\path_manager::detect_module_level($cm->name);
+            if ($mod_level !== null) {
+                $binfo = \block_adaptive_learning_ai\path_manager::get_level_badge_info($mod_level);
+                $badge_data[] = [
+                    'cmid'   => $cmid,
+                    'level'  => $mod_level,
+                    'label'  => $binfo['label'],
+                    'color'  => $binfo['color'],
+                    'bg'     => $binfo['bg'],
+                    'border' => $binfo['border'],
+                    'icon'   => $binfo['icon']
+                ];
             }
         }
+    }
 
-        $json_badges = json_encode($badge_data);
+    $json_badges = json_encode($badge_data);
 
+    if ($is_teacher) {
+        // =========================================================================
+        // MODE GURU / ADMIN: Bersihkan teks [Level] dari judul & berikan visual badge
+        // =========================================================================
         $html .= <<<HTML
 <style>
 .alai-teacher-badge {
@@ -131,27 +132,115 @@ function block_adaptive_learning_ai_render_adaptive_view(int $courseid): string 
 }
 </style>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+(function() {
     var badges = {$json_badges};
-    badges.forEach(function(b) {
-        var el = document.querySelector('#module-' + b.cmid + ' .activityname, [data-id="' + b.cmid + '"] .activityname, #module-' + b.cmid + ' .instancename');
-        if (el && !el.querySelector('.alai-teacher-badge')) {
-            var span = document.createElement('span');
-            span.className = 'alai-teacher-badge';
-            span.style.color = b.color;
-            span.style.background = b.bg;
-            span.style.border = '1px solid ' + b.border;
-            span.innerHTML = '<i class="fa ' + b.icon + '"></i> ' + b.label;
-            el.appendChild(span);
+    var levelTagRegex = /^\s*[\[\(](primary|intermediate|expert|dasar|menengah|mahir|pemula|beginner|advanced|remedial|remidial)[\]\)]\s*[-–:]?\s*/i;
+
+    function cleanTextNodes(node) {
+        if (!node) return false;
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (levelTagRegex.test(node.nodeValue)) {
+                node.nodeValue = node.nodeValue.replace(levelTagRegex, '');
+                return true;
+            }
+            return false;
         }
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList && (node.classList.contains('alai-teacher-badge') || node.classList.contains('accesshide') || node.tagName === 'INPUT' || node.tagName === 'FORM')) {
+                return false;
+            }
+            var cleaned = false;
+            for (var i = 0; i < node.childNodes.length; i++) {
+                if (cleanTextNodes(node.childNodes[i])) {
+                    cleaned = true;
+                }
+            }
+            return cleaned;
+        }
+        return false;
+    }
+
+    function applyBadgesAndCleanTitles() {
+        if (!badges || !badges.length) return;
+
+        badges.forEach(function(b) {
+            // 1. Bersihkan teks judul dan pasang badge pada modul di konten utama
+            var modElements = document.querySelectorAll('#module-' + b.cmid + ', [data-id="' + b.cmid + '"]');
+            modElements.forEach(function(modEl) {
+                var nameContainers = modEl.querySelectorAll('.activityname, .instancename, a.aalink');
+                nameContainers.forEach(function(nc) {
+                    cleanTextNodes(nc);
+                });
+
+                modEl.querySelectorAll('a, span').forEach(function(sub) {
+                    if (sub.getAttribute) {
+                        var t = sub.getAttribute('title');
+                        if (t && levelTagRegex.test(t)) sub.setAttribute('title', t.replace(levelTagRegex, ''));
+                        var a = sub.getAttribute('aria-label');
+                        if (a && levelTagRegex.test(a)) sub.setAttribute('aria-label', a.replace(levelTagRegex, ''));
+                    }
+                });
+
+                var badgeTarget = modEl.querySelector('.activityname') || modEl.querySelector('.activity-instance');
+                if (badgeTarget && !badgeTarget.querySelector('.alai-teacher-badge')) {
+                    var span = document.createElement('span');
+                    span.className = 'alai-teacher-badge';
+                    span.style.color = b.color;
+                    span.style.background = b.bg;
+                    span.style.border = '1px solid ' + b.border;
+                    span.innerHTML = '<i class="fa ' + b.icon + '"></i> ' + b.label;
+                    badgeTarget.appendChild(span);
+                }
+            });
+
+            // 2. Bersihkan teks pada Course Index drawer di sebelah kiri
+            var indexElements = document.querySelectorAll('#course-index-cm-' + b.cmid + ', [data-for="cm"][data-id="' + b.cmid + '"], li.courseindex-item[data-id="' + b.cmid + '"]');
+            indexElements.forEach(function(idxEl) {
+                cleanTextNodes(idxEl);
+                var a = idxEl.querySelector('a.courseindex-link') || (idxEl.tagName === 'A' ? idxEl : null);
+                if (a) {
+                    var t = a.getAttribute('title');
+                    if (t && levelTagRegex.test(t)) a.setAttribute('title', t.replace(levelTagRegex, ''));
+                }
+            });
+        });
+
+        // 3. Bersihkan judul jika ada header section / subsection dengan tag level
+        document.querySelectorAll('.course-section-header, .sectionname, h3.sectionname, h4.sectionname').forEach(function(secEl) {
+            cleanTextNodes(secEl);
+        });
+    }
+
+    // Eksekusi segera
+    applyBadgesAndCleanTitles();
+
+    // Eksekusi saat DOM siap
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyBadgesAndCleanTitles);
+    } else {
+        applyBadgesAndCleanTitles();
+    }
+
+    // Amati perubahan DOM dinamis (misal toggle Edit mode atau navigasi AJAX)
+    var targetNode = document.getElementById('region-main') || document.querySelector('.course-content') || document.body;
+    if (targetNode && window.MutationObserver) {
+        var observer = new MutationObserver(function() {
+            applyBadgesAndCleanTitles();
+        });
+        observer.observe(targetNode, { childList: true, subtree: true });
+    }
+
+    // Safety passes
+    [60, 150, 350, 800, 1800, 3000].forEach(function(delay) {
+        setTimeout(applyBadgesAndCleanTitles, delay);
     });
-});
+})();
 </script>
 HTML;
 
     } else {
         // =========================================================================
-        // MODE SISWA: Sembunyikan modul level lain, tampilkan banner jalur aktif
+        // MODE SISWA: Sembunyikan modul level lain, tampilkan banner, dan bersihkan judul
         // =========================================================================
         $hidden_info = \block_adaptive_learning_ai\path_manager::get_hidden_cmids_for_user($courseid, (int)$USER->id);
         $hidden_cmids = array_keys($hidden_info);
@@ -215,6 +304,19 @@ HTML;
         $html .= <<<HTML
 <style>
 {$hide_css}
+.alai-teacher-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
 .alai-path-banner {
     display: flex;
     align-items: center;
@@ -252,11 +354,37 @@ HTML;
 (function() {
     var hiddenCmids = {$json_hidden_cmids};
     var banners = {$json_banners};
+    var badges = {$json_badges};
+    var levelTagRegex = /^\s*[\[\(](primary|intermediate|expert|dasar|menengah|mahir|pemula|beginner|advanced|remedial|remidial)[\]\)]\s*[-–:]?\s*/i;
+
+    function cleanTextNodes(node) {
+        if (!node) return false;
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (levelTagRegex.test(node.nodeValue)) {
+                node.nodeValue = node.nodeValue.replace(levelTagRegex, '');
+                return true;
+            }
+            return false;
+        }
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList && (node.classList.contains('alai-teacher-badge') || node.classList.contains('accesshide') || node.tagName === 'INPUT' || node.tagName === 'FORM')) {
+                return false;
+            }
+            var cleaned = false;
+            for (var i = 0; i < node.childNodes.length; i++) {
+                if (cleanTextNodes(node.childNodes[i])) {
+                    cleaned = true;
+                }
+            }
+            return cleaned;
+        }
+        return false;
+    }
 
     function purgeHiddenElements() {
         if (!hiddenCmids || !hiddenCmids.length) return;
         hiddenCmids.forEach(function(cmid) {
-            // 1. Remove course index drawer items (dropdown sebelah kiri)
+            // 1. Remove course index drawer items
             var indexItem = document.getElementById('course-index-cm-' + cmid);
             if (indexItem) {
                 indexItem.remove();
@@ -311,9 +439,63 @@ HTML;
         });
     }
 
+    function applyBadgesAndCleanTitles() {
+        if (!badges || !badges.length) return;
+
+        badges.forEach(function(b) {
+            // Jika modul ini disembunyikan untuk siswa, lewati
+            if (hiddenCmids.indexOf(b.cmid) !== -1 || hiddenCmids.indexOf(String(b.cmid)) !== -1) {
+                return;
+            }
+
+            var modElements = document.querySelectorAll('#module-' + b.cmid + ', [data-id="' + b.cmid + '"]');
+            modElements.forEach(function(modEl) {
+                var nameContainers = modEl.querySelectorAll('.activityname, .instancename, a.aalink');
+                nameContainers.forEach(function(nc) {
+                    cleanTextNodes(nc);
+                });
+
+                modEl.querySelectorAll('a, span').forEach(function(sub) {
+                    if (sub.getAttribute) {
+                        var t = sub.getAttribute('title');
+                        if (t && levelTagRegex.test(t)) sub.setAttribute('title', t.replace(levelTagRegex, ''));
+                        var a = sub.getAttribute('aria-label');
+                        if (a && levelTagRegex.test(a)) sub.setAttribute('aria-label', a.replace(levelTagRegex, ''));
+                    }
+                });
+
+                var badgeTarget = modEl.querySelector('.activityname') || modEl.querySelector('.activity-instance');
+                if (badgeTarget && !badgeTarget.querySelector('.alai-teacher-badge')) {
+                    var span = document.createElement('span');
+                    span.className = 'alai-teacher-badge';
+                    span.style.color = b.color;
+                    span.style.background = b.bg;
+                    span.style.border = '1px solid ' + b.border;
+                    span.innerHTML = '<i class="fa ' + b.icon + '"></i> ' + b.label;
+                    badgeTarget.appendChild(span);
+                }
+            });
+
+            var indexElements = document.querySelectorAll('#course-index-cm-' + b.cmid + ', [data-for="cm"][data-id="' + b.cmid + '"], li.courseindex-item[data-id="' + b.cmid + '"]');
+            indexElements.forEach(function(idxEl) {
+                cleanTextNodes(idxEl);
+                var a = idxEl.querySelector('a.courseindex-link') || (idxEl.tagName === 'A' ? idxEl : null);
+                if (a) {
+                    var t = a.getAttribute('title');
+                    if (t && levelTagRegex.test(t)) a.setAttribute('title', t.replace(levelTagRegex, ''));
+                }
+            });
+        });
+
+        document.querySelectorAll('.course-section-header, .sectionname, h3.sectionname, h4.sectionname').forEach(function(secEl) {
+            cleanTextNodes(secEl);
+        });
+    }
+
     function initAdaptiveView() {
         purgeHiddenElements();
         renderBanners();
+        applyBadgesAndCleanTitles();
     }
 
     // Execute immediately
@@ -327,17 +509,16 @@ HTML;
     }
 
     // Observe drawer and main course DOM dynamically
-    var observeTarget = document.getElementById('courseindex') || document.querySelector('.courseindex') || document.body;
+    var observeTarget = document.getElementById('region-main') || document.getElementById('courseindex') || document.body;
     if (observeTarget && window.MutationObserver) {
         var domObserver = new MutationObserver(function() {
-            purgeHiddenElements();
-            renderBanners();
+            initAdaptiveView();
         });
         domObserver.observe(observeTarget, { childList: true, subtree: true });
     }
 
     // Periodic safety passes during page load
-    [80, 200, 500, 1000, 2000].forEach(function(delay) {
+    [80, 200, 500, 1000, 2000, 3500].forEach(function(delay) {
         setTimeout(initAdaptiveView, delay);
     });
 })();
