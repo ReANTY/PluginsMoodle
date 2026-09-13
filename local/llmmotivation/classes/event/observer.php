@@ -166,7 +166,7 @@ class observer {
                     }
                 } else if (in_array($cm->modname, ['page', 'resource', 'url'])) {
                     $is_done = false;
-                    if ($cm->completion > 0) {
+                    if (!empty($cm->completion)) {
                         $comp = $DB->get_record('course_modules_completion', [
                             'coursemoduleid' => $cm->id,
                             'userid' => $userid,
