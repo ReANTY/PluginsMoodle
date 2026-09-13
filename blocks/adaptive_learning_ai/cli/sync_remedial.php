@@ -808,6 +808,16 @@ for ($week = 1; $week <= 5; $week++) {
 
     $remedial_quiz_cmids[$week] = $cmid;
 
+    // Pastikan quiz_sections terpasang (Wajib untuk Moodle 4/5 agar tidak error 'Can\'t find data record in database')
+    if (!$DB->record_exists('quiz_sections', ['quizid' => $quizid])) {
+        $DB->insert_record('quiz_sections', [
+            'quizid' => $quizid,
+            'firstslot' => 1,
+            'heading' => '',
+            'shufflequestions' => 0,
+        ]);
+    }
+
     // Pasang 10 slot soal jika belum terpasang
     $quiz_obj = $DB->get_record('quiz', ['id' => $quizid]);
     $quiz_obj->cmid = $cmid;
